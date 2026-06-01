@@ -1,0 +1,61 @@
+@inject NavigationManager Nav
+@implements IDisposable
+
+<nav class="@(Mobile ? "bottom-nav" : "rail-nav")" @oncontextmenu:preventDefault="true">
+    <button class="@NavClass("/dashboard")" @onclick='() => Go("/dashboard")'>
+        <span class="nav-icon">▦</span>
+        <span>الرئيسية</span>
+    </button>
+    <button class="@NavClass("/assets")" @onclick='() => Go("/assets")'>
+        <span class="nav-icon">▤</span>
+        <span>الأصول</span>
+    </button>
+    <button class="@NavClass("/transactions")" @onclick='() => Go("/transactions")'>
+        <span class="nav-icon">₪</span>
+        <span>العمليات</span>
+    </button>
+    <button class="@NavClass("/settings")" @onclick='() => Go("/settings")'>
+        <span class="nav-icon">⚙</span>
+        <span>الإعدادات</span>
+    </button>
+</nav>
+
+@code {
+    [Parameter] public bool Mobile { get; set; }
+    private string currentPath = string.Empty;
+
+    protected override void OnInitialized()
+    {
+        currentPath = CurrentPath();
+        Nav.LocationChanged += OnLocationChanged;
+    }
+
+    private void Go(string url)
+    {
+        currentPath = url.TrimEnd('/');
+        Nav.NavigateTo(url);
+    }
+
+    private string NavClass(string url)
+    {
+        var target = url.TrimEnd('/');
+        return currentPath.Equals(target, StringComparison.OrdinalIgnoreCase) ? "active" : string.Empty;
+    }
+
+    private string CurrentPath()
+    {
+        var path = new Uri(Nav.Uri).AbsolutePath.TrimEnd('/');
+        return string.IsNullOrWhiteSpace(path) ? "/dashboard" : path;
+    }
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        currentPath = CurrentPath();
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        Nav.LocationChanged -= OnLocationChanged;
+    }
+}

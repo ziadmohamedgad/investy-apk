@@ -1,0 +1,99 @@
+@inherits LayoutComponentBase
+@implements IDisposable
+@inject ThemeService Theme
+@inject BalanceVisibilityService Balance
+
+<div class="app-shell @(Theme.IsDark ? "dark" : "")" dir="rtl">
+    @if (showLaunch)
+    {
+        <div class="launch-overlay">
+            <div class="launch-icon">
+                <svg viewBox="0 0 64 64" role="img">
+                    <rect width="64" height="64" rx="14" fill="#2563eb"></rect>
+                    <path d="M14 45h36" fill="none" stroke="#dbeafe" stroke-width="4" stroke-linecap="round"></path>
+                    <path d="M16 39l10-10 8 6 14-17" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"></path>
+                    <circle cx="16" cy="39" r="3.5" fill="#fbbf24"></circle>
+                    <circle cx="26" cy="29" r="3.5" fill="#fbbf24"></circle>
+                    <circle cx="34" cy="35" r="3.5" fill="#fbbf24"></circle>
+                    <circle cx="48" cy="18" r="3.5" fill="#fbbf24"></circle>
+                </svg>
+            </div>
+            <div class="launch-name">إنڤيستي</div>
+        </div>
+    }
+
+    <aside class="desktop-rail">
+        <BrandLogo />
+        <div class="rail-toggles">
+            <button class="theme-toggle" @onclick="ToggleTheme" aria-label="تبديل الوضع">
+                <span class="toggle-orb">@ThemeIcon</span>
+                <span>@(Theme.IsDark ? "الوضع النهاري" : "الوضع الليلي")</span>
+            </button>
+            <button class="theme-toggle" @onclick="ToggleBalances" aria-label="إخفاء وإظهار الأموال">
+                <span class="toggle-orb">@EyeIcon</span>
+                <span>@(Balance.HideBalances ? "إظهار الأموال" : "إخفاء الأموال")</span>
+            </button>
+        </div>
+        <NavMenu />
+    </aside>
+
+    <div class="mobile-frame">
+        <header class="mobile-header">
+            <BrandLogo Class="compact" />
+            <div class="header-toggles">
+                <button class="icon-button visibility-button" @onclick="ToggleBalances" aria-label="إخفاء وإظهار الأموال">
+                    @EyeIcon
+                </button>
+                <button class="icon-button theme-icon-button" @onclick="ToggleTheme" aria-label="تبديل الوضع">
+                    @ThemeIcon
+                </button>
+            </div>
+        </header>
+
+        <main class="page-content">
+            @Body
+        </main>
+
+        <NavMenu Mobile="true" />
+    </div>
+</div>
+
+@code {
+    private bool showLaunch = true;
+
+    protected override void OnInitialized()
+    {
+        Theme.Load();
+        Balance.Load();
+        Theme.Changed += OnStateChanged;
+        Balance.Changed += OnStateChanged;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        await Task.Delay(2300);
+        showLaunch = false;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void ToggleTheme() => Theme.Toggle();
+    private void ToggleBalances() => Balance.Toggle();
+    private void OnStateChanged() => InvokeAsync(StateHasChanged);
+    private MarkupString ThemeIcon => (MarkupString)(Theme.IsDark
+        ? "<svg viewBox='0 0 24 24' aria-hidden='true'><path d='M12 4V2m0 20v-2m8-8h2M2 12h2m14.95-6.95 1.42-1.42M3.63 20.37l1.42-1.42m0-13.9L3.63 3.63m16.74 16.74-1.42-1.42' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round'/><circle cx='12' cy='12' r='4' fill='none' stroke='currentColor' stroke-width='2'/></svg>"
+        : "<svg viewBox='0 0 24 24' aria-hidden='true'><path d='M20.5 14.2A8.5 8.5 0 0 1 9.8 3.5 8.5 8.5 0 1 0 20.5 14.2Z' fill='none' stroke='currentColor' stroke-width='2' stroke-linejoin='round'/></svg>");
+    private MarkupString EyeIcon => (MarkupString)(Balance.HideBalances
+        ? "<svg viewBox='0 0 24 24' aria-hidden='true'><path d='M3 3l18 18' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round'/><path d='M10.6 10.6A2 2 0 0 0 13.4 13.4M9.8 5.4A10.7 10.7 0 0 1 12 5c5 0 8.6 4.1 10 7a13.2 13.2 0 0 1-2.8 3.9M6.4 6.9A13.7 13.7 0 0 0 2 12c1.4 2.9 5 7 10 7 1.4 0 2.7-.3 3.8-.9' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/></svg>"
+        : "<svg viewBox='0 0 24 24' aria-hidden='true'><path d='M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z' fill='none' stroke='currentColor' stroke-width='2' stroke-linejoin='round'/><circle cx='12' cy='12' r='3' fill='none' stroke='currentColor' stroke-width='2'/></svg>");
+
+    public void Dispose()
+    {
+        Theme.Changed -= OnStateChanged;
+        Balance.Changed -= OnStateChanged;
+    }
+}

@@ -1,0 +1,108 @@
+@page "/settings"
+@inject EodhdMobileService Eodhd
+@inject NavigationManager Nav
+
+<PageTitle>الإعدادات</PageTitle>
+
+<section class="page-head">
+    <div>
+        <h1>الإعدادات</h1>
+        <p>مفتاح EODHD وبيانات الحصة</p>
+    </div>
+</section>
+
+@if (!string.IsNullOrWhiteSpace(message))
+{
+    <div class="notice">@message</div>
+}
+
+<section class="surface">
+    <div class="section-title">
+        <h2>حالة المفتاح</h2>
+        <button class="ghost" @onclick="LoadStatusAsync">تحديث</button>
+    </div>
+
+    @if (loadingStatus)
+    {
+        <p>جاري تحميل بيانات المفتاح...</p>
+    }
+    else if (status == null)
+    {
+        <p>لم يتم تحميل بيانات المفتاح.</p>
+    }
+    else
+    {
+        <div class="settings-list">
+            <span>الاسم <b>@status.Name</b></span>
+            <span>البريد <b>@status.Email</b></span>
+            <span>الخطة <b>@status.SubscriptionType</b></span>
+            <span>المتبقي <b>@status.Remaining</b></span>
+            <span>المستخدم اليوم <b>@status.ApiRequestsUsedToday</b></span>
+            <span>الإجمالي <b>@status.TotalAvailable</b></span>
+        </div>
+    }
+</section>
+
+<section class="surface">
+    <div class="section-title">
+        <h2>تغيير المفتاح</h2>
+    </div>
+    <div class="mobile-form">
+        <label>
+            مفتاح EODHD جديد
+            <input class="field" @bind="newApiKey" />
+        </label>
+    </div>
+    <div class="form-actions">
+        <button class="danger" @onclick="ClearAsync">مسح المفتاح</button>
+        <button class="primary" @onclick="SaveAsync" disabled="@busy">حفظ</button>
+    </div>
+</section>
+
+@code {
+    private EodhdUserStatus? status;
+    private string newApiKey = string.Empty;
+    private string? message;
+    private bool busy;
+    private bool loadingStatus;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!await Eodhd.HasApiKeyAsync())
+        {
+            Nav.NavigateTo("/", replace: true);
+            return;
+        }
+
+        await LoadStatusAsync();
+    }
+
+    private async Task LoadStatusAsync()
+    {
+        loadingStatus = true;
+        status = await Eodhd.GetUserStatusAsync();
+        loadingStatus = false;
+    }
+
+    private async Task SaveAsync()
+    {
+        busy = true;
+        var result = await Eodhd.SaveAndValidateApiKeyAsync(newApiKey);
+        busy = false;
+        if (result == null)
+        {
+            message = "المفتاح غير صحيح أو لا يوجد اتصال.";
+            return;
+        }
+
+        status = result;
+        newApiKey = string.Empty;
+        message = "تم تحديث المفتاح.";
+    }
+
+    private async Task ClearAsync()
+    {
+        await Eodhd.ClearApiKeyAsync();
+        Nav.NavigateTo("/", replace: true);
+    }
+}

@@ -1,0 +1,57 @@
+@page "/"
+@inject EodhdMobileService Eodhd
+@inject NavigationManager Nav
+
+<PageTitle>إنڤيستي</PageTitle>
+
+<section class="setup-screen">
+    <div class="setup-card">
+        <BrandLogo Class="large" />
+        <h1>مفتاح EODHD</h1>
+        <p>أدخل المفتاح أول مرة فقط. سيحفظ داخل الهاتف ويستخدم للمزامنة والبحث عن الأسهم.</p>
+        <input class="field" placeholder="EODHD API Key" @bind="apiKeyInput" @onkeydown="HandleKey" />
+        @if (!string.IsNullOrWhiteSpace(message))
+        {
+            <p class="inline-message">@message</p>
+        }
+        <button class="primary wide-button" @onclick="SaveAsync" disabled="@busy">حفظ وفتح التطبيق</button>
+    </div>
+</section>
+
+@code {
+    private string apiKeyInput = string.Empty;
+    private string? message;
+    private bool busy;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (await Eodhd.HasApiKeyAsync())
+        {
+            Nav.NavigateTo("/dashboard", replace: true);
+        }
+    }
+
+    private async Task HandleKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await SaveAsync();
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        busy = true;
+        message = "جاري التحقق من المفتاح...";
+        var status = await Eodhd.SaveAndValidateApiKeyAsync(apiKeyInput);
+        busy = false;
+
+        if (status == null)
+        {
+            message = "المفتاح غير صحيح أو لا يوجد اتصال.";
+            return;
+        }
+
+        Nav.NavigateTo("/dashboard", replace: true);
+    }
+}

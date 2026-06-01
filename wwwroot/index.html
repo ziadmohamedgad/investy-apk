@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <title>إنڤيستي</title>
+    <base href="/" />
+    <link rel="stylesheet" href="app.css" />
+    <link rel="stylesheet" href="Investy.Mobile.styles.css" />
+    <link rel="icon" href="data:," />
+</head>
+<body>
+    <div id="app"></div>
+    <div id="blazor-error-ui" data-nosnippet>
+        حدث خطأ غير متوقع.
+        <a href="." class="reload">إعادة تحميل</a>
+        <span class="dismiss">x</span>
+    </div>
+    <script src="_framework/blazor.webview.js" autostart="false"></script>
+    <script>
+        window.investyScrollTo = (id) => {
+            const element = document.getElementById(id);
+            if (element) {
+                element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        };
+        document.addEventListener('contextmenu', (event) => {
+            if (event.target.closest('.bottom-nav, button, a')) {
+                event.preventDefault();
+            }
+        });
+        document.addEventListener('selectstart', (event) => {
+            if (event.target.closest('.bottom-nav, button')) {
+                event.preventDefault();
+            }
+        });
+        document.addEventListener('dragstart', (event) => {
+            if (event.target.closest('.bottom-nav, button')) {
+                event.preventDefault();
+            }
+        });
+        document.addEventListener('touchstart', (event) => {
+            if (event.target.closest('.bottom-nav button')) {
+                window.getSelection?.().removeAllRanges();
+            }
+        }, { passive: true });
+        document.addEventListener('beforeinput', (event) => {
+            if (!event.target.closest('.ascii-only') || !event.data) {
+                return;
+            }
+            if (/[^\x00-\x7F]/.test(event.data)) {
+                event.preventDefault();
+            }
+        });
+        document.addEventListener('input', (event) => {
+            const target = event.target;
+            if (!target.closest?.('.ascii-only') || typeof target.value !== 'string') {
+                return;
+            }
+            const sanitized = target.value.replace(/[^\x00-\x7F]/g, '');
+            if (sanitized !== target.value) {
+                target.value = sanitized;
+                target.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,268 @@
+@page "/dashboard"
+@implements IDisposable
+@inject LocalDatabase Database
+@inject PortfolioService Portfolio
+@inject EodhdMobileService Eodhd
+@inject ExportService Exporter
+@inject NavigationManager Nav
+@inject BalanceVisibilityService Balance
+
+<PageTitle>لوحة التحكم</PageTitle>
+
+<section class="page-head">
+    <div>
+        <h1>لوحة التحكم</h1>
+        <p>ملخص المحفظة حسب آخر أسعار محفوظة</p>
+        <div class="head-actions inline-actions">
+            <button class="ghost export-button" @onclick="ExportAsync" disabled="@busy">تصدير ملف</button>
+            <button class="primary" @onclick="SyncPricesAsync" disabled="@busy">مزامنة الأسعار</button>
+        </div>
+    </div>
+</section>
+
+@if (!string.IsNullOrWhiteSpace(message))
+{
+    <div class="notice">@message</div>
+}
+
+<section class="summary-grid">
+    <article class="summary-card">
+        <span>إجمالي المدفوع</span>
+        <strong class="@BalanceClass">@MoneyValue(dashboard.TotalInvestedCapital)</strong>
+    </article>
+    <article class="summary-card">
+        <span>إجمالي القيمة</span>
+        <strong class="@BalanceClass">@MoneyValue(dashboard.TotalCurrentValue)</strong>
+    </article>
+    <article class="summary-card">
+        <span>الربح/الخسارة غير المحققة</span>
+        <strong class="@($"{Tone(dashboard.TotalUnrealizedPnL)} {BalanceClass}")">@MoneyValue(dashboard.TotalUnrealizedPnL)</strong>
+        <small class="@($"{Tone(dashboard.TotalUnrealizedPnL)} {BalanceClass}")">@PercentValue(dashboard.TotalUnrealizedPnLPercent)</small>
+    </article>
+    <article class="summary-card">
+        <span>الربح/الخسارة المحققة</span>
+        <strong class="@($"{Tone(dashboard.TotalRealizedPnL)} {BalanceClass}")">@MoneyValue(dashboard.TotalRealizedPnL)</strong>
+    </article>
+</section>
+
+<section class="surface">
+    <div class="section-title">
+        <h2>الأصول</h2>
+        <div class="section-actions">
+            <span>@IncludedHoldings.Count من @holdings.Count أصل</span>
+            @if (excludedAssetIds.Count > 0)
+            {
+                <button class="text-button" @onclick="EnableAllAssets">إظهار الكل</button>
+            }
+        </div>
+    </div>
+    <div class="asset-filter-grid">
+        @if (AssetTypeFilters.Count > 1)
+        {
+            <div class="asset-type-toggle-row">
+                @foreach (var filter in AssetTypeFilters)
+                {
+                    <button class="asset-type-toggle @(IsAssetTypeExcluded(filter) ? "is-active" : "")" @onclick="() => ToggleAssetType(filter)">
+                        <span>@filter.Label</span>
+                        <b>@filter.AssetIds.Count</b>
+                    </button>
+                }
+            </div>
+        }
+
+        @foreach (var item in holdings.OrderByDescending(h => h.CurrentValue))
+        {
+            var excluded = excludedAssetIds.Contains(item.Asset.AssetId);
+            <button class="asset-filter-card @(excluded ? "is-disabled" : "")" @onclick="() => ToggleAsset(item.Asset.AssetId)">
+                <span class="code @CodeClass(item.Asset)">@item.Asset.AssetCode</span>
+                <b class="@BalanceClass">@MoneyValue(item.CurrentValue)</b>
+            </button>
+        }
+    </div>
+</section>
+
+@code {
+    private DashboardSummary dashboard = new(0, 0, 0, 0, 0, 0, 0, 0, 0);
+    private List<AssetSummary> holdings = new();
+    private List<Asset> assets = new();
+    private readonly HashSet<int> excludedAssetIds = new();
+    private string? message;
+    private bool busy;
+
+    private List<AssetSummary> IncludedHoldings => holdings.Where(h => !excludedAssetIds.Contains(h.Asset.AssetId)).ToList();
+    private List<AssetTypeFilter> AssetTypeFilters => holdings
+        .GroupBy(h => h.Asset.IsDailyAccrualFund ? "TCD" : h.Asset.AssetType.ToString())
+        .OrderBy(g => AssetTypeOrder(g.Key))
+        .Select(g => new AssetTypeFilter(AssetTypeToggleLabel(g.Key), g.Select(h => h.Asset.AssetId).Distinct().ToList()))
+        .ToList();
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!await Eodhd.HasApiKeyAsync())
+        {
+            Nav.NavigateTo("/", replace: true);
+            return;
+        }
+
+        Balance.Changed += OnBalanceChanged;
+        await ReloadAsync();
+    }
+
+    private void OnBalanceChanged() => InvokeAsync(StateHasChanged);
+
+    private async Task ReloadAsync()
+    {
+        assets = await Database.GetAssetsAsync();
+        holdings = await Portfolio.GetHoldingsAsync();
+        RecalculateDashboard();
+    }
+
+    private void ToggleAsset(int assetId)
+    {
+        if (!excludedAssetIds.Add(assetId))
+        {
+            excludedAssetIds.Remove(assetId);
+        }
+
+        RecalculateDashboard();
+    }
+
+    private void EnableAllAssets()
+    {
+        excludedAssetIds.Clear();
+        RecalculateDashboard();
+    }
+
+    private void ToggleAssetType(AssetTypeFilter filter)
+    {
+        var isExcluded = IsAssetTypeExcluded(filter);
+        foreach (var assetId in filter.AssetIds)
+        {
+            if (isExcluded)
+            {
+                excludedAssetIds.Remove(assetId);
+            }
+            else
+            {
+                excludedAssetIds.Add(assetId);
+            }
+        }
+
+        RecalculateDashboard();
+    }
+
+    private bool IsAssetTypeExcluded(AssetTypeFilter filter) => filter.AssetIds.All(excludedAssetIds.Contains);
+
+    private void RecalculateDashboard()
+    {
+        var included = IncludedHoldings;
+        var paid = included.Sum(h => h.TotalPaidIncludingFees);
+        var current = included.Sum(h => h.CurrentValue);
+        var unrealized = included.Sum(h => h.UnrealizedPnL);
+        var realized = included.Sum(h => h.RealizedPnL);
+        var totalReturn = unrealized + realized;
+        dashboard = new DashboardSummary(
+            Math.Round(paid, 2),
+            Math.Round(current, 2),
+            Math.Round(unrealized, 2),
+            paid != 0 ? Math.Round(unrealized / paid * 100, 2) : 0,
+            Math.Round(realized, 2),
+            included.Sum(h => h.TotalFeesPaid),
+            paid != 0 ? Math.Round(totalReturn / paid * 100, 2) : 0,
+            included.Count,
+            0);
+    }
+
+    private async Task SyncPricesAsync()
+    {
+        busy = true;
+        var synced = 0;
+        foreach (var asset in assets.Where(a => a.AssetType == AssetType.Stock && !string.IsNullOrWhiteSpace(a.ExternalTicker)))
+        {
+            var price = await Eodhd.FetchLatestPriceAsync(asset.ExternalTicker!);
+            if (price == null)
+            {
+                continue;
+            }
+
+            await Database.SavePriceAsync(new AssetPrice
+            {
+                AssetId = asset.AssetId,
+                PriceDate = price.Value.Date.Date,
+                PriceValue = price.Value.Price,
+                Source = PriceSource.Eodhd
+            });
+            synced++;
+        }
+
+        await ReloadAsync();
+        busy = false;
+        await ShowMessageAsync(synced == 0 ? "لم يتم تحديث أي سعر." : $"تم تحديث {synced} سعر.");
+    }
+
+    private async Task ExportAsync()
+    {
+        try
+        {
+            busy = true;
+            var path = await Exporter.ExportWorkbookAsync();
+            await ShowMessageAsync($"تم حفظ التصدير: {Path.GetFileName(path)}");
+        }
+        catch (Exception ex)
+        {
+            await ShowMessageAsync($"تعذر التصدير: {ex.Message}");
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private async Task ShowMessageAsync(string text)
+    {
+        message = text;
+        StateHasChanged();
+        await Task.Delay(3500);
+        if (message == text)
+        {
+            message = null;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private string Money(decimal value) => Balance.HideBalances ? "••••••" : $"{value.ToString("N2")} ج.م";
+    private string Percent(decimal value) => Balance.HideBalances ? "••••" : $"{value.ToString("N2")}%";
+    private string BalanceClass => Balance.HideBalances ? "balance-value is-hidden" : "balance-value";
+    private string MoneyValue(decimal value) => $"{value.ToString("N2")} \u062c.\u0645";
+    private string PercentValue(decimal value) => $"{value.ToString("N2")}%";
+    private static string Tone(decimal value) => value > 0 ? "positive" : value < 0 ? "negative" : string.Empty;
+    private static string CodeClass(Asset asset) => asset.AssetType == AssetType.Gold ? "gold" : asset.AssetType != AssetType.Stock ? "blue" : string.Empty;
+    private static string AssetTypeToggleLabel(string type) => type switch
+    {
+        "Stock" => "إلغاء الأسهم",
+        "Gold" => "إلغاء الذهب",
+        "Fund" => "إلغاء الصناديق",
+        "TCD" => "إلغاء ثاندر كلاود",
+        "Other" => "إلغاء الأصول الأخرى",
+        _ => $"إلغاء {type}"
+    };
+
+    private static int AssetTypeOrder(string type) => type switch
+    {
+        "Stock" => 1,
+        "Gold" => 2,
+        "Fund" => 3,
+        "TCD" => 4,
+        "Other" => 5,
+        _ => 99
+    };
+
+    private sealed record AssetTypeFilter(string Label, List<int> AssetIds);
+
+    public void Dispose()
+    {
+        Balance.Changed -= OnBalanceChanged;
+    }
+}
+
+

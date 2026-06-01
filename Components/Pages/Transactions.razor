@@ -1,0 +1,573 @@
+@page "/transactions"
+@implements IDisposable
+@inject LocalDatabase Database
+@inject PortfolioService Portfolio
+@inject EodhdMobileService Eodhd
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+@inject BalanceVisibilityService Balance
+
+<PageTitle>العمليات</PageTitle>
+
+<section class="page-head">
+    <div>
+        <h1>العمليات</h1>
+        <p>إضافة وتعديل عمليات الشراء والبيع</p>
+    </div>
+</section>
+
+@if (!string.IsNullOrWhiteSpace(message))
+{
+    <div class="notice @(messageIsError ? "is-error" : "")">@message</div>
+}
+
+<section class="surface" id="transaction-editor">
+    <div class="section-title">
+        <h2>@(editingTransactionId.HasValue ? "تعديل عملية" : "إضافة عملية")</h2>
+        <div class="segmented">
+            <button class="@(formOpen && entryMode == "stock" ? "selected" : "")" @onclick='() => OpenForm("stock")'>سهم</button>
+            <button class="@(formOpen && entryMode == "other" ? "selected" : "")" @onclick='() => OpenForm("other")'>أصل آخر</button>
+        </div>
+    </div>
+
+    @if (formOpen)
+    {
+        <div class="mobile-form collapsible-form">
+            @if (entryMode == "stock")
+            {
+                <label>
+                    البحث عن سهم بالكود
+                    <input class="field ascii-only" value="@stockQuery" @oninput="OnStockQueryChanged" disabled="@editingTransactionId.HasValue" />
+                </label>
+                @if (stockSuggestions.Count > 0)
+                {
+                    <div class="suggestions">
+                        @foreach (var item in stockSuggestions)
+                        {
+                            <button @onclick="() => PickStock(item)">@item.Code - @item.Name</button>
+                        }
+                    </div>
+                }
+                @if (!string.IsNullOrWhiteSpace(assetName))
+                {
+                    <div class="selected-asset">@assetName</div>
+                }
+            }
+            else
+            {
+                <label>
+                    نوع الأصل
+                    <select class="field" @bind="manualType" @bind:after="OnManualTypeChanged" disabled="@editingTransactionId.HasValue">
+                        <option value="Gold">ذهب</option>
+                        <option value="Fund">صندوق / مؤشر</option>
+                        <option value="TCD">صندوق ثاندر كلاود لحظي</option>
+                        <option value="Other">أخرى (عقار، ممتلكات، إلخ)</option>
+                    </select>
+                </label>
+                <label>
+                    كود الأصل
+                    <input class="field ascii-only" value="@assetCode" @oninput="OnManualAssetCodeChanged" disabled="@editingTransactionId.HasValue" />
+                </label>
+                @if (manualSuggestions.Count > 0)
+                {
+                    <div class="suggestions">
+                        @foreach (var item in manualSuggestions)
+                        {
+                            <button @onclick="() => PickManualAsset(item)">@item.Code - @item.Name</button>
+                        }
+                    </div>
+                }
+                <label>
+                    اسم الأصل
+                    <input class="field ascii-only" value="@assetName" @oninput="OnAssetNameChanged" disabled="@editingTransactionId.HasValue" />
+                </label>
+            }
+
+            <label>
+                نوع العملية
+                <select class="field" @bind="transactionType">
+                    <option value="Buy">شراء</option>
+                    <option value="Sell">بيع</option>
+                </select>
+            </label>
+            <label>
+                التاريخ
+                <input class="field" type="date" @bind="transactionDate" />
+            </label>
+            <label>
+                @(IsGold ? "عدد الجرامات" : IsTcd ? "المبلغ" : "الكمية")
+                <input class="field" type="number" step="0.01" @bind="quantity" />
+            </label>
+            @if (!IsTcd)
+            {
+                <label>
+                    @(IsGold ? "السعر للجرام" : "السعر للوحدة")
+                    <input class="field" type="number" step="0.00001" @bind="pricePerUnit" />
+                </label>
+            }
+            @if (IsGold)
+            {
+                <label>
+                    @(transactionType == "Buy" ? "المصنعية للجرام" : "الكاش باك للجرام")
+                    <input class="field" type="number" step="0.00001" @bind="manufacturingFeePerGram" />
+                </label>
+            }
+            @if (!IsTcd)
+            {
+                <label>
+                    الرسوم
+                    <input class="field" type="number" step="0.00001" @bind="fees" />
+                </label>
+            }
+        </div>
+
+        <div class="form-actions">
+            <button class="ghost" @onclick="CloseForm">إلغاء</button>
+            <button class="primary" @onclick="SaveTransactionAsync" disabled="@busy">حفظ</button>
+        </div>
+    }
+</section>
+
+<section class="surface">
+    <div class="section-title">
+        <h2>آخر العمليات</h2>
+        <span>@transactions.Count عملية</span>
+    </div>
+
+    <div class="transaction-stack">
+        @foreach (var transaction in transactions)
+        {
+            var asset = assets.FirstOrDefault(a => a.AssetId == transaction.AssetId);
+            <article class="transaction-card">
+                <div>
+                    <span class="code @CodeClass(asset)">@asset?.AssetCode</span>
+                    <strong>@(transaction.TransactionType == TransactionKind.Buy ? "شراء" : "بيع")</strong>
+                    <small>@transaction.TransactionDate.ToString("yyyy/MM/dd")</small>
+                </div>
+                <div class="transaction-numbers">
+                    <span>الكمية <b class="@BalanceClass">@transaction.Quantity.ToString("N2")</b></span>
+                    <span>السعر <b class="@BalanceClass">@transaction.PricePerUnit.ToString("N5")</b></span>
+                    <span>الصافي <b class="@BalanceClass">@MoneyValue(transaction.NetAmount)</b></span>
+                </div>
+                <div class="row-actions">
+                    <button class="ghost" @onclick="() => EditTransactionAsync(transaction.TransactionId)">تعديل</button>
+                    <button class="danger" @onclick="() => RequestDeleteTransaction(transaction.TransactionId)">حذف</button>
+                </div>
+            </article>
+        }
+    </div>
+</section>
+
+@if (pendingDeleteTransactionId.HasValue)
+{
+    <div class="confirm-backdrop" @onclick="CancelDeleteTransaction">
+        <div class="confirm-card" @onclick:stopPropagation>
+            <strong>تأكيد الحذف</strong>
+            <p>هل تريد حذف هذه العملية؟</p>
+            <div class="confirm-actions">
+                <button class="ghost" @onclick="CancelDeleteTransaction">إلغاء</button>
+                <button class="danger" @onclick="ConfirmDeleteTransactionAsync">حذف</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool busy;
+    private bool formOpen;
+    private bool messageIsError;
+    private int? editingTransactionId;
+    private int? pendingDeleteTransactionId;
+    private string? message;
+    private List<Asset> assets = new();
+    private List<InvestmentTransaction> transactions = new();
+    private List<StockSearchResult> stockSuggestions = new();
+    private List<StockSearchResult> manualSuggestions = new();
+
+    private string entryMode = "stock";
+    private string manualType = "Gold";
+    private string stockQuery = string.Empty;
+    private string assetCode = string.Empty;
+    private string assetName = string.Empty;
+    private string transactionType = "Buy";
+    private DateTime transactionDate = DateTime.Today;
+    private decimal? quantity;
+    private decimal? pricePerUnit;
+    private decimal? fees;
+    private decimal? manufacturingFeePerGram;
+
+    private bool IsGold => entryMode == "other" && manualType == "Gold";
+    private bool IsTcd => entryMode == "other" && manualType == "TCD";
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!await Eodhd.HasApiKeyAsync())
+        {
+            Nav.NavigateTo("/", replace: true);
+            return;
+        }
+
+        Balance.Changed += OnBalanceChanged;
+        await ReloadAsync();
+    }
+
+    private void OnBalanceChanged() => InvokeAsync(StateHasChanged);
+
+    private async Task ReloadAsync()
+    {
+        assets = await Database.GetAssetsAsync();
+        transactions = await Database.GetTransactionsAsync();
+    }
+
+    private void OpenForm(string mode)
+    {
+        ResetForm(keepMode: true);
+        entryMode = mode;
+        formOpen = true;
+        if (mode == "other")
+        {
+            OnManualTypeChanged();
+        }
+    }
+
+    private void CloseForm()
+    {
+        ResetForm();
+        formOpen = false;
+    }
+
+    private async Task OnStockQueryChanged(ChangeEventArgs e)
+    {
+        stockQuery = ToAscii(e.Value?.ToString() ?? string.Empty).ToUpperInvariant();
+        assetCode = stockQuery.Trim().ToUpperInvariant();
+        assetName = string.Empty;
+        stockSuggestions.Clear();
+        manualSuggestions.Clear();
+
+        if (string.IsNullOrWhiteSpace(stockQuery))
+        {
+            return;
+        }
+
+        var local = await Database.SearchAssetsByPrefixAsync(stockQuery);
+        stockSuggestions = local.Select(a => new StockSearchResult(a.AssetCode, a.AssetName, a.Currency, a.ExternalTicker ?? a.AssetCode)).ToList();
+
+        if (stockQuery.Trim().Length >= 4 && stockSuggestions.Count == 0)
+        {
+            stockSuggestions = await Eodhd.SearchEgyptStocksAsync(stockQuery);
+        }
+    }
+
+    private void PickStock(StockSearchResult item)
+    {
+        stockQuery = item.Code;
+        assetCode = item.Code;
+        assetName = item.Name;
+        stockSuggestions.Clear();
+    }
+
+    private async Task OnManualAssetCodeChanged(ChangeEventArgs e)
+    {
+        assetCode = ToAscii(e.Value?.ToString() ?? string.Empty).Trim().ToUpperInvariant();
+        assetName = string.Empty;
+        manualSuggestions.Clear();
+
+        if (string.IsNullOrWhiteSpace(assetCode))
+        {
+            return;
+        }
+
+        var matches = await Database.SearchAssetsByPrefixAsync(assetCode, ManualSearchAssetType, IsTcd ? true : false);
+        manualSuggestions = matches
+            .Select(a => new StockSearchResult(a.AssetCode, a.AssetName, a.Currency, a.ExternalTicker ?? a.AssetCode))
+            .ToList();
+    }
+
+    private void PickManualAsset(StockSearchResult item)
+    {
+        assetCode = item.Code;
+        assetName = item.Name;
+        manualSuggestions.Clear();
+    }
+
+    private void OnAssetNameChanged(ChangeEventArgs e)
+    {
+        assetName = ToAscii(e.Value?.ToString() ?? string.Empty);
+    }
+
+    private void OnManualTypeChanged()
+    {
+        manualSuggestions.Clear();
+        if (manualType == "TCD")
+        {
+            assetCode = "TCD";
+            assetName = "Thndr Cloud Daily";
+            pricePerUnit = 1m;
+            fees = null;
+            return;
+        }
+
+        assetCode = string.Empty;
+        assetName = string.Empty;
+        pricePerUnit = null;
+    }
+
+    private async Task SaveTransactionAsync()
+    {
+            try
+            {
+                busy = true;
+                message = null;
+            Asset? existingStockBeforeSave = null;
+            var hadPreviousStockTransactions = false;
+            if (!editingTransactionId.HasValue && entryMode == "stock" && !string.IsNullOrWhiteSpace(assetCode))
+            {
+                existingStockBeforeSave = await Database.GetAssetByCodeAsync(assetCode);
+                if (existingStockBeforeSave?.AssetType == AssetType.Stock)
+                {
+                    hadPreviousStockTransactions = (await Database.GetTransactionsByAssetAsync(existingStockBeforeSave.AssetId)).Count > 0;
+                }
+            }
+
+            var asset = await EnsureAssetAsync();
+            var kind = Enum.Parse<TransactionKind>(transactionType);
+            var transaction = await Portfolio.BuildTransactionAsync(
+                asset,
+                kind,
+                transactionDate,
+                quantity ?? 0m,
+                pricePerUnit ?? 0m,
+                IsTcd ? 0m : fees ?? 0m,
+                manufacturingFeePerGram ?? 0m,
+                null,
+                editingTransactionId ?? 0);
+            await Database.SaveTransactionAsync(transaction);
+
+            if (!editingTransactionId.HasValue && entryMode == "other" && !asset.IsDailyAccrualFund && (pricePerUnit ?? 0m) > 0)
+            {
+                await Database.SavePriceAsync(new AssetPrice
+                {
+                    AssetId = asset.AssetId,
+                    PriceDate = transactionDate.Date,
+                    PriceValue = pricePerUnit!.Value,
+                    Source = PriceSource.Manual
+                });
+            }
+
+            if (existingStockBeforeSave != null && hadPreviousStockTransactions)
+            {
+                await UpdateExistingStockPriceFromTransactionIfNewerAsync(asset, transactionDate, pricePerUnit ?? 0m);
+            }
+
+            var wasEditing = editingTransactionId.HasValue;
+            CloseForm();
+            await ReloadAsync();
+            await ShowMessageAsync(wasEditing ? "تم تعديل العملية." : "تم حفظ العملية.");
+        }
+        catch (Exception ex)
+        {
+            await ShowMessageAsync(ex.Message, isError: true);
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private async Task<Asset> EnsureAssetAsync()
+    {
+        if (editingTransactionId.HasValue)
+        {
+            var current = await Database.GetTransactionAsync(editingTransactionId.Value);
+            var currentAsset = current == null ? null : await Database.GetAssetAsync(current.AssetId);
+            if (currentAsset != null)
+            {
+                return currentAsset;
+            }
+        }
+
+        if (string.IsNullOrWhiteSpace(assetCode))
+        {
+            throw new InvalidOperationException("كود الأصل مطلوب.");
+        }
+
+        var existing = await Database.GetAssetByCodeAsync(assetCode);
+        if (existing != null)
+        {
+            return existing;
+        }
+
+        if (string.IsNullOrWhiteSpace(assetName))
+        {
+            assetName = assetCode.Trim().ToUpperInvariant();
+        }
+
+        var asset = new Asset
+        {
+            AssetCode = assetCode,
+            AssetName = ToAscii(assetName),
+            AssetType = entryMode == "stock" ? AssetType.Stock : manualType == "Gold" ? AssetType.Gold : AssetType.Other,
+            ExternalTicker = entryMode == "stock" ? assetCode + ".EGX" : null,
+            IsDailyAccrualFund = manualType == "TCD",
+            DailyAccrualAnnualRatePercent = manualType == "TCD" ? 16m : 0m,
+            GoldCashbackPerGram = manualType == "Gold" ? 28.5m : 0m
+        };
+
+        if (manualType == "Fund")
+        {
+            asset.AssetType = AssetType.Fund;
+        }
+
+        await Database.SaveAssetAsync(asset);
+        var created = (await Database.GetAssetByCodeAsync(asset.AssetCode))!;
+        if (created.AssetType == AssetType.Stock && !string.IsNullOrWhiteSpace(created.ExternalTicker))
+        {
+            await TrySeedNewStockPriceAsync(created);
+        }
+
+        return created;
+    }
+
+    private async Task TrySeedNewStockPriceAsync(Asset asset)
+    {
+        var latest = await Eodhd.FetchLatestPriceAsync(asset.ExternalTicker ?? asset.AssetCode);
+        if (latest == null)
+        {
+            return;
+        }
+
+        await Database.SavePriceAsync(new AssetPrice
+        {
+            AssetId = asset.AssetId,
+            PriceDate = latest.Value.Date.Date,
+            PriceValue = latest.Value.Price,
+            Source = PriceSource.Eodhd
+        });
+    }
+
+    private async Task UpdateExistingStockPriceFromTransactionIfNewerAsync(Asset asset, DateTime date, decimal price)
+    {
+        if (asset.AssetType != AssetType.Stock || price <= 0)
+        {
+            return;
+        }
+
+        var latest = await Database.GetLatestPriceAsync(asset.AssetId);
+        if (latest != null && latest.PriceDate.Date > date.Date)
+        {
+            return;
+        }
+
+        await Database.SavePriceAsync(new AssetPrice
+        {
+            AssetId = asset.AssetId,
+            PriceDate = date.Date,
+            PriceValue = price,
+            Source = PriceSource.Manual
+        });
+    }
+
+    private async Task EditTransactionAsync(int id)
+    {
+        var transaction = await Database.GetTransactionAsync(id);
+        if (transaction == null)
+        {
+            return;
+        }
+
+        var asset = await Database.GetAssetAsync(transaction.AssetId);
+        if (asset == null)
+        {
+            return;
+        }
+
+        editingTransactionId = id;
+        formOpen = true;
+        entryMode = asset.AssetType == AssetType.Stock ? "stock" : "other";
+        manualType = asset.IsDailyAccrualFund ? "TCD" : asset.AssetType.ToString();
+        stockQuery = asset.AssetCode;
+        assetCode = asset.AssetCode;
+        assetName = asset.AssetName;
+        transactionType = transaction.TransactionType.ToString();
+        transactionDate = transaction.TransactionDate;
+        quantity = asset.IsDailyAccrualFund ? transaction.TotalAmount : transaction.Quantity;
+        pricePerUnit = transaction.PricePerUnit;
+            fees = transaction.Fees == 0 ? null : transaction.Fees;
+        manufacturingFeePerGram = transaction.ManufacturingFeePerGram == 0 ? null : transaction.ManufacturingFeePerGram;
+        await InvokeAsync(StateHasChanged);
+        await JS.InvokeVoidAsync("investyScrollTo", "transaction-editor");
+    }
+
+    private void RequestDeleteTransaction(int id)
+    {
+        pendingDeleteTransactionId = id;
+    }
+
+    private void CancelDeleteTransaction()
+    {
+        pendingDeleteTransactionId = null;
+    }
+
+    private async Task ConfirmDeleteTransactionAsync()
+    {
+        if (!pendingDeleteTransactionId.HasValue)
+        {
+            return;
+        }
+
+        var id = pendingDeleteTransactionId.Value;
+        pendingDeleteTransactionId = null;
+        await Database.DeleteTransactionAsync(id);
+        await ReloadAsync();
+        await ShowMessageAsync("تم حذف العملية.");
+    }
+
+    private async Task ShowMessageAsync(string text, bool isError = false)
+    {
+        message = text;
+        messageIsError = isError;
+        StateHasChanged();
+        await Task.Delay(3500);
+        if (message == text)
+        {
+            message = null;
+            messageIsError = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private void ResetForm(bool keepMode = false)
+    {
+        editingTransactionId = null;
+        stockQuery = string.Empty;
+        assetCode = string.Empty;
+        assetName = string.Empty;
+        transactionType = "Buy";
+        transactionDate = DateTime.Today;
+        quantity = null;
+        pricePerUnit = null;
+        fees = null;
+        manufacturingFeePerGram = null;
+        stockSuggestions.Clear();
+        if (!keepMode)
+        {
+            entryMode = "stock";
+        manualType = "Gold";
+        }
+    }
+
+    private string Money(decimal value) => Balance.HideBalances ? "••••••" : $"{value.ToString("N2")} ج.م";
+    private string BalanceClass => Balance.HideBalances ? "balance-value is-hidden" : "balance-value";
+    private string MoneyValue(decimal value) => $"{value.ToString("N2")} \u062c.\u0645";
+    private AssetType ManualSearchAssetType => manualType == "Gold" ? AssetType.Gold : manualType is "Fund" or "TCD" ? AssetType.Fund : AssetType.Other;
+    private static string CodeClass(Asset? asset) => asset?.AssetType == AssetType.Gold ? "gold" : asset?.AssetType != AssetType.Stock ? "blue" : string.Empty;
+    private static string ToAscii(string value) => new(value.Where(c => c <= 127).ToArray());
+
+    public void Dispose()
+    {
+        Balance.Changed -= OnBalanceChanged;
+    }
+}
+
+
+

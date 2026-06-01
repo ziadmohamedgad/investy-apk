@@ -1,0 +1,31 @@
+# Build output
+**/bin/
+**/obj/
+**/TestResults/
+
+# .NET/MAUI user files
+.vs/
+*.user
+*.suo
+*.rsuser
+*.userosscache
+*.sln.docstates
+
+# Android signing and packages
+*.apk
+*.aab
+*.keystore
+*.jks
+*.p12
+
+# Local app data and exports
+*.db
+*.sqlite
+*.sqlite3
+*.xlsx
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

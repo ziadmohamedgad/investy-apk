@@ -1,0 +1,191 @@
+@page "/assets"
+@implements IDisposable
+@inject LocalDatabase Database
+@inject PortfolioService Portfolio
+@inject EodhdMobileService Eodhd
+@inject NavigationManager Nav
+@inject BalanceVisibilityService Balance
+
+<PageTitle>حالة الأصول</PageTitle>
+
+<section class="page-head">
+    <div>
+        <h1>حالة الأصول</h1>
+        <p>متوسط الشراء والقيمة السوقية والربح حسب كل أصل</p>
+    </div>
+</section>
+
+@if (!string.IsNullOrWhiteSpace(message))
+{
+    <div class="notice">@message</div>
+}
+
+<section class="asset-stack">
+    @foreach (var item in holdings)
+    {
+        <article class="asset-tile">
+            <div class="asset-main">
+                <span class="code @CodeClass(item.Asset)">@item.Asset.AssetCode</span>
+                <div>
+                    <strong>@item.Asset.AssetName</strong>
+                    <small>@AssetTypeLabel(item.Asset)</small>
+                </div>
+            </div>
+
+            <div class="stat-grid">
+                <span>الكمية <b class="@BalanceClass">@item.TotalUnitsHeld.ToString("N2")</b></span>
+                <span>متوسط الشراء <b class="@BalanceClass">@item.AverageBuyPrice.ToString("N5")</b></span>
+                <span>السعر الحالي <b class="@BalanceClass">@item.CurrentPrice.ToString("N5")</b></span>
+                <span>القيمة <b class="@BalanceClass">@MoneyValue(item.CurrentValue)</b></span>
+                <span>الربح/الخسارة <b class="@($"{Tone(item.TotalPnL)} {BalanceClass}")">@MoneyValue(item.TotalPnL)</b></span>
+            </div>
+
+            <div class="inline-form">
+                @if (item.Asset.AssetType == AssetType.Gold)
+                {
+                    <label>الكاش باك للجرام <input type="number" step="0.00001" value="@item.Asset.GoldCashbackPerGram" @onchange="e => UpdateGoldCashbackAsync(item.Asset, e.Value?.ToString())" /></label>
+                }
+                @if (item.Asset.IsDailyAccrualFund)
+                {
+                    <label>النسبة السنوية <input type="number" step="0.00001" value="@item.Asset.DailyAccrualAnnualRatePercent" @onchange="e => UpdateTcdRateAsync(item.Asset, e.Value?.ToString())" /></label>
+                }
+                @if (!item.Asset.IsDailyAccrualFund)
+                {
+                    <label>تحديث السعر <input type="number" step="0.00001" @onchange="e => SetManualPriceAsync(item.Asset, e.Value?.ToString())" /></label>
+                }
+                @if (item.Asset.AssetType == AssetType.Stock && !string.IsNullOrWhiteSpace(item.Asset.ExternalTicker))
+                {
+                    <button class="ghost" @onclick="() => SyncAssetPriceAsync(item.Asset)">مزامنة السعر</button>
+                }
+                <button class="danger" @onclick="() => RequestDeleteAsset(item.Asset.AssetId)">حذف</button>
+            </div>
+        </article>
+    }
+</section>
+
+@if (pendingDeleteAssetId.HasValue)
+{
+    <div class="confirm-backdrop" @onclick="CancelDeleteAsset">
+        <div class="confirm-card" @onclick:stopPropagation>
+            <strong>تأكيد الحذف</strong>
+            <p>هل تريد حذف هذا الأصل؟ سيتم حذف معاملاته وأسعاره المرتبطة به.</p>
+            <div class="confirm-actions">
+                <button class="ghost" @onclick="CancelDeleteAsset">إلغاء</button>
+                <button class="danger" @onclick="ConfirmDeleteAssetAsync">حذف</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<AssetSummary> holdings = new();
+    private string? message;
+    private int? pendingDeleteAssetId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!await Eodhd.HasApiKeyAsync())
+        {
+            Nav.NavigateTo("/", replace: true);
+            return;
+        }
+
+        Balance.Changed += OnBalanceChanged;
+        await ReloadAsync();
+    }
+
+    private void OnBalanceChanged() => InvokeAsync(StateHasChanged);
+
+    private async Task ReloadAsync()
+    {
+        holdings = await Portfolio.GetHoldingsAsync();
+    }
+
+    private async Task SetManualPriceAsync(Asset asset, string? value)
+    {
+        if (decimal.TryParse(value, out var price) && price >= 0)
+        {
+            await Database.SavePriceAsync(new AssetPrice { AssetId = asset.AssetId, PriceDate = DateTime.Today, PriceValue = price, Source = PriceSource.Manual });
+            await ReloadAsync();
+        }
+    }
+
+    private async Task SyncAssetPriceAsync(Asset asset)
+    {
+        var price = await Eodhd.FetchLatestPriceAsync(asset.ExternalTicker ?? asset.AssetCode);
+        if (price == null)
+        {
+            message = "تعذر تحديث سعر الأصل.";
+            return;
+        }
+
+        await Database.SavePriceAsync(new AssetPrice
+        {
+            AssetId = asset.AssetId,
+            PriceDate = price.Value.Date.Date,
+            PriceValue = price.Value.Price,
+            Source = PriceSource.Eodhd
+        });
+        message = $"تم تحديث سعر {asset.AssetCode}.";
+        await ReloadAsync();
+    }
+
+    private async Task UpdateGoldCashbackAsync(Asset asset, string? value)
+    {
+        if (decimal.TryParse(value, out var cashback) && cashback >= 0)
+        {
+            asset.GoldCashbackPerGram = cashback;
+            await Database.SaveAssetAsync(asset);
+            await ReloadAsync();
+        }
+    }
+
+    private async Task UpdateTcdRateAsync(Asset asset, string? value)
+    {
+        if (decimal.TryParse(value, out var rate) && rate > 0)
+        {
+            asset.DailyAccrualAnnualRatePercent = rate;
+            await Database.SaveAssetAsync(asset);
+            await ReloadAsync();
+        }
+    }
+
+    private void RequestDeleteAsset(int id)
+    {
+        pendingDeleteAssetId = id;
+    }
+
+    private void CancelDeleteAsset()
+    {
+        pendingDeleteAssetId = null;
+    }
+
+    private async Task ConfirmDeleteAssetAsync()
+    {
+        if (!pendingDeleteAssetId.HasValue)
+        {
+            return;
+        }
+
+        var id = pendingDeleteAssetId.Value;
+        pendingDeleteAssetId = null;
+        await Database.DeleteAssetAsync(id);
+        message = "تم حذف الأصل.";
+        await ReloadAsync();
+    }
+
+    private string Money(decimal value) => Balance.HideBalances ? "••••••" : $"{value.ToString("N2")} ج.م";
+    private string BalanceClass => Balance.HideBalances ? "balance-value is-hidden" : "balance-value";
+    private string MoneyValue(decimal value) => $"{value.ToString("N2")} \u062c.\u0645";
+    private static string Tone(decimal value) => value > 0 ? "positive" : value < 0 ? "negative" : string.Empty;
+    private static string CodeClass(Asset asset) => asset.AssetType == AssetType.Gold ? "gold" : asset.AssetType != AssetType.Stock ? "blue" : string.Empty;
+    private static string AssetTypeLabel(Asset asset) => asset.IsDailyAccrualFund ? "صندوق ثاندر كلاود لحظي" : asset.AssetType.ToString();
+
+    public void Dispose()
+    {
+        Balance.Changed -= OnBalanceChanged;
+    }
+}
+
+
+
