@@ -56,13 +56,13 @@
                 }
                 @if (!item.Asset.IsDailyAccrualFund)
                 {
-                    <button class="ghost compact-action asset-action-button" @onclick="() => OpenPriceEditor(item)">تحديث السعر</button>
+                    <button class="ghost compact-action asset-action-button" @onclick="() => OpenPriceEditor(item)">تعديل السعر</button>
                 }
                 @if (item.Asset.AssetType == AssetType.Stock && !string.IsNullOrWhiteSpace(item.Asset.ExternalTicker))
                 {
-                    <button class="ghost compact-action asset-action-button" title="مزامنة السعر" @onclick="() => SyncAssetPriceAsync(item.Asset)">مزامنة</button>
+                    <button class="ghost compact-action asset-action-button" title="مزامنة السعر" @onclick="() => SyncAssetPriceAsync(item.Asset)">مزامنة السعر</button>
                 }
-                <button class="danger compact-action asset-action-button" title="حذف" @onclick="() => RequestDeleteAsset(item.Asset.AssetId)"><span aria-hidden="true">🗑</span> حذف</button>
+                <button class="danger compact-action asset-action-button icon-only-asset-action" title="حذف" aria-label="حذف الأصل" @onclick="() => RequestDeleteAsset(item.Asset.AssetId)"><span aria-hidden="true">🗑</span></button>
             </div>
         </article>
     }

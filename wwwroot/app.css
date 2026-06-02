@@ -863,6 +863,11 @@ small,
     white-space: nowrap;
 }
 
+.icon-only-asset-action {
+    font-size: .95rem;
+    padding-inline: 0;
+}
+
 label {
     display: grid;
     gap: 6px;
