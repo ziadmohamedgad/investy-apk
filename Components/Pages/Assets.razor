@@ -34,13 +34,18 @@
 
             <div class="stat-grid">
                 <span>الكمية <b class="@BalanceClass">@item.TotalUnitsHeld.ToString("N2")</b></span>
-                <span>متوسط الشراء <b class="@BalanceClass">@item.AverageBuyPrice.ToString("N5")</b></span>
+                @if (!item.Asset.IsDailyAccrualFund)
+                {
+                    <span>متوسط الشراء <b class="@BalanceClass">@item.AverageBuyPrice.ToString("N5")</b></span>
+                }
                 <span>السعر الحالي <b class="@BalanceClass">@item.CurrentPrice.ToString("N5")</b></span>
-                <span>القيمة <b class="@BalanceClass">@MoneyValue(item.CurrentValue)</b></span>
-                <span>الربح/الخسارة <b class="@($"{Tone(item.TotalPnL)} {BalanceClass}")">@MoneyValue(item.TotalPnL)</b></span>
+                <span>إجمالي المدفوع بالرسوم <b class="@BalanceClass">@MoneyValue(item.TotalPaidIncludingFees)</b></span>
+                <span>القيمة السوقية <b class="@BalanceClass">@MoneyValue(item.CurrentValue)</b></span>
+                <span>إجمالي الربح/الخسارة <b class="@($"{Tone(item.TotalPnL)} {BalanceClass}")">@MoneyValue(item.TotalPnL)</b></span>
+                <span>نسبة الربح/الخسارة <b class="@($"{Tone(item.TotalPnLPercent)} {BalanceClass}")">@PercentValue(item.TotalPnLPercent)</b></span>
             </div>
 
-            <div class="inline-form">
+            <div class="inline-form asset-controls">
                 @if (item.Asset.AssetType == AssetType.Gold)
                 {
                     <label>الكاش باك للجرام <input type="number" step="0.00001" value="@item.Asset.GoldCashbackPerGram" @onchange="e => UpdateGoldCashbackAsync(item.Asset, e.Value?.ToString())" /></label>
@@ -55,9 +60,9 @@
                 }
                 @if (item.Asset.AssetType == AssetType.Stock && !string.IsNullOrWhiteSpace(item.Asset.ExternalTicker))
                 {
-                    <button class="ghost" @onclick="() => SyncAssetPriceAsync(item.Asset)">مزامنة السعر</button>
+                    <button class="ghost compact-action" @onclick="() => SyncAssetPriceAsync(item.Asset)">مزامنة</button>
                 }
-                <button class="danger" @onclick="() => RequestDeleteAsset(item.Asset.AssetId)">حذف</button>
+                <button class="danger compact-action" @onclick="() => RequestDeleteAsset(item.Asset.AssetId)">حذف</button>
             </div>
         </article>
     }
@@ -115,7 +120,7 @@
         var price = await Eodhd.FetchLatestPriceAsync(asset.ExternalTicker ?? asset.AssetCode);
         if (price == null)
         {
-            message = "تعذر تحديث سعر الأصل.";
+            await ShowMessageAsync("تعذر تحديث سعر الأصل.");
             return;
         }
 
@@ -126,8 +131,8 @@
             PriceValue = price.Value.Price,
             Source = PriceSource.Eodhd
         });
-        message = $"تم تحديث سعر {asset.AssetCode}.";
         await ReloadAsync();
+        await ShowMessageAsync($"تم تحديث سعر {asset.AssetCode}.");
     }
 
     private async Task UpdateGoldCashbackAsync(Asset asset, string? value)
@@ -170,16 +175,29 @@
         var id = pendingDeleteAssetId.Value;
         pendingDeleteAssetId = null;
         await Database.DeleteAssetAsync(id);
-        message = "تم حذف الأصل.";
         await ReloadAsync();
+        await ShowMessageAsync("تم حذف الأصل.");
     }
 
     private string Money(decimal value) => Balance.HideBalances ? "••••••" : $"{value.ToString("N2")} ج.م";
     private string BalanceClass => Balance.HideBalances ? "balance-value is-hidden" : "balance-value";
     private string MoneyValue(decimal value) => $"{value.ToString("N2")} \u062c.\u0645";
+    private string PercentValue(decimal value) => $"{value.ToString("N2")}%";
     private static string Tone(decimal value) => value > 0 ? "positive" : value < 0 ? "negative" : string.Empty;
     private static string CodeClass(Asset asset) => asset.AssetType == AssetType.Gold ? "gold" : asset.AssetType != AssetType.Stock ? "blue" : string.Empty;
     private static string AssetTypeLabel(Asset asset) => asset.IsDailyAccrualFund ? "صندوق ثاندر كلاود لحظي" : asset.AssetType.ToString();
+
+    private async Task ShowMessageAsync(string text)
+    {
+        message = text;
+        StateHasChanged();
+        await Task.Delay(2000);
+        if (message == text)
+        {
+            message = null;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
 
     public void Dispose()
     {

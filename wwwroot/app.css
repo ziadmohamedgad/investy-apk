@@ -789,6 +789,18 @@ small,
     grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.asset-tile .stat-grid {
+    gap: 8px;
+}
+
+.asset-tile .stat-grid span {
+    min-height: 52px;
+    padding: 9px 10px;
+    border: 1px solid var(--border);
+    border-radius: 13px;
+    background: color-mix(in srgb, var(--surface-2) 62%, transparent);
+}
+
 .inline-form,
 .mobile-form {
     display: grid;
@@ -797,6 +809,22 @@ small,
 
 .inline-form {
     margin-top: 12px;
+}
+
+.asset-controls {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: end;
+}
+
+.asset-controls label {
+    grid-column: 1 / -1;
+}
+
+.compact-action {
+    min-height: 38px;
+    padding-inline: 10px;
+    border-radius: 999px;
+    font-size: .84rem;
 }
 
 label {

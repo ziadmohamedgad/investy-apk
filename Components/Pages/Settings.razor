@@ -91,18 +91,30 @@
         busy = false;
         if (result == null)
         {
-            message = "المفتاح غير صحيح أو لا يوجد اتصال.";
+            await ShowMessageAsync("المفتاح غير صحيح أو لا يوجد اتصال.");
             return;
         }
 
         status = result;
         newApiKey = string.Empty;
-        message = "تم تحديث المفتاح.";
+        await ShowMessageAsync("تم تحديث المفتاح.");
     }
 
     private async Task ClearAsync()
     {
         await Eodhd.ClearApiKeyAsync();
         Nav.NavigateTo("/", replace: true);
+    }
+
+    private async Task ShowMessageAsync(string text)
+    {
+        message = text;
+        StateHasChanged();
+        await Task.Delay(2000);
+        if (message == text)
+        {
+            message = null;
+            await InvokeAsync(StateHasChanged);
+        }
     }
 }

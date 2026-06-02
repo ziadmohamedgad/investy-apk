@@ -4,6 +4,7 @@ namespace Investy.Mobile.Services;
 
 public class PortfolioService
 {
+    private const decimal QuantityTolerance = 0.0000001m;
     private readonly LocalDatabase _database;
 
     public PortfolioService(LocalDatabase database)
@@ -73,6 +74,8 @@ public class PortfolioService
             throw new InvalidOperationException("الكمية يجب أن تكون أكبر من صفر.");
         }
 
+        EnsureNotFutureDate(transactionDate);
+
         if (!asset.IsDailyAccrualFund && pricePerUnit < 0)
         {
             throw new InvalidOperationException("السعر لا يمكن أن يكون سالبًا.");
@@ -87,18 +90,9 @@ public class PortfolioService
         var accrualStartDate = GetDailyAccrualStartDate(asset, existing, transactionDate);
         var normalized = NormalizeTransaction(asset, kind, transactionDate, quantityOrAmount, pricePerUnit, fees, manufacturingFeePerGram, accrualStartDate);
 
-        if (kind == TransactionKind.Sell)
+        var transaction = new InvestmentTransaction
         {
-            var unitsHeld = CalculateUnitsHeld(asset, existing, accrualStartDate);
-            if (normalized.Quantity > unitsHeld)
-            {
-                throw new InvalidOperationException($"لا يمكن بيع {normalized.Quantity:N5}. المتاح حاليا {unitsHeld:N5}.");
-            }
-        }
-
-        return new InvestmentTransaction
-        {
-            TransactionId = transactionId,
+            TransactionId = transactionId == 0 ? int.MaxValue : transactionId,
             AssetId = asset.AssetId,
             TransactionType = kind,
             TransactionDate = transactionDate.Date,
@@ -110,6 +104,10 @@ public class PortfolioService
             NetAmount = normalized.NetAmount,
             Notes = string.IsNullOrWhiteSpace(notes) ? null : notes.Trim()
         };
+
+        ValidateTransactionSequence(asset, existing.Append(transaction).ToList(), accrualStartDate);
+        transaction.TransactionId = transactionId;
+        return transaction;
     }
 
     public static AssetSummary CalculateAssetSummary(Asset asset, List<InvestmentTransaction> transactions, decimal currentPrice)
@@ -117,6 +115,40 @@ public class PortfolioService
         return asset.IsDailyAccrualFund
             ? CalculateDailyAccrualFundSummary(asset, transactions)
             : CalculateStandardAssetSummary(asset, transactions, currentPrice);
+    }
+
+    public static void ValidateTransactionSequence(Asset asset, IEnumerable<InvestmentTransaction> transactions, DateTime accrualStartDate)
+    {
+        decimal unitsHeld = 0;
+        var hasBuy = false;
+
+        foreach (var transaction in transactions.OrderBy(t => t.TransactionDate).ThenBy(t => t.TransactionId))
+        {
+            var quantity = GetEffectiveQuantity(asset, transaction, accrualStartDate);
+
+            if (transaction.TransactionType == TransactionKind.Buy)
+            {
+                hasBuy = true;
+                unitsHeld += quantity;
+                continue;
+            }
+
+            if (!hasBuy)
+            {
+                throw new InvalidOperationException(asset.IsDailyAccrualFund
+                    ? "لا يمكن تسجيل سحب قبل وجود إيداع سابق لهذا الأصل."
+                    : "لا يمكن تسجيل بيع قبل وجود عملية شراء سابقة لهذا الأصل.");
+            }
+
+            if (quantity > unitsHeld + QuantityTolerance)
+            {
+                throw new InvalidOperationException(asset.IsDailyAccrualFund
+                    ? $"لا يمكن سحب مبلغ يتخطى المتاح لهذا الأصل. المتاح حاليًا {unitsHeld:N5} وحدة."
+                    : $"لا يمكن بيع {quantity:N5}. المتاح عند تاريخ العملية {unitsHeld:N5}.");
+            }
+
+            unitsHeld -= quantity;
+        }
     }
 
     private static AssetSummary CalculateStandardAssetSummary(Asset asset, List<InvestmentTransaction> transactions, decimal currentPrice)
@@ -265,23 +297,37 @@ public class PortfolioService
         return (units, unitPrice, amount, accrualNetAmount);
     }
 
-    private static decimal CalculateUnitsHeld(Asset asset, IEnumerable<InvestmentTransaction> transactions, DateTime accrualStartDate)
+    public static decimal CalculateUnitsHeld(Asset asset, IEnumerable<InvestmentTransaction> transactions, DateTime accrualStartDate)
     {
         decimal unitsHeld = 0;
 
         foreach (var transaction in transactions)
         {
-            var quantity = transaction.Quantity;
-            if (asset.IsDailyAccrualFund)
-            {
-                var unitPrice = GetDailyAccrualUnitPrice(asset, transaction.TransactionDate, accrualStartDate);
-                quantity = unitPrice > 0 ? transaction.TotalAmount / unitPrice : 0;
-            }
+            var quantity = GetEffectiveQuantity(asset, transaction, accrualStartDate);
 
             unitsHeld += transaction.TransactionType == TransactionKind.Buy ? quantity : -quantity;
         }
 
         return unitsHeld;
+    }
+
+    private static decimal GetEffectiveQuantity(Asset asset, InvestmentTransaction transaction, DateTime accrualStartDate)
+    {
+        if (!asset.IsDailyAccrualFund)
+        {
+            return transaction.Quantity;
+        }
+
+        var unitPrice = GetDailyAccrualUnitPrice(asset, transaction.TransactionDate, accrualStartDate);
+        return unitPrice > 0 ? transaction.TotalAmount / unitPrice : 0;
+    }
+
+    private static void EnsureNotFutureDate(DateTime transactionDate)
+    {
+        if (transactionDate.Date > DateTime.Today)
+        {
+            throw new InvalidOperationException("لا يمكن تسجيل عملية بتاريخ مستقبلي.");
+        }
     }
 
     public static DateTime GetDailyAccrualStartDate(Asset asset, IEnumerable<InvestmentTransaction> transactions, DateTime? candidateTransactionDate = null)
