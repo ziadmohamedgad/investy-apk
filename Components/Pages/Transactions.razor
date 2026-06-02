@@ -118,29 +118,33 @@
             {
                 <label>
                     @(IsGold ? "السعر للجرام" : "السعر للوحدة")
-                    <input class="field" type="number" step="0.00001" @bind="pricePerUnit" />
+                    <input class="field" type="number" step="0.00001" @bind="pricePerUnit" @bind:event="oninput" />
                 </label>
             }
             @if (IsGold)
             {
                 <label>
                     @(transactionType == "Buy" ? "المصنعية للجرام" : "الكاش باك للجرام")
-                    <input class="field" type="number" step="0.00001" @bind="manufacturingFeePerGram" />
+                    <input class="field" type="number" step="0.00001" @bind="manufacturingFeePerGram" @bind:event="oninput" />
                 </label>
             }
             @if (!IsTcd)
             {
                 <label>
                     الرسوم
-                    <input class="field" type="number" step="0.00001" @bind="fees" />
+                    <input class="field" type="number" step="0.00001" @bind="fees" @bind:event="oninput" />
                 </label>
             }
-            <div class="transaction-total @(SellExceedsAvailable || SellNetInvalid ? "is-danger" : "")">
-                <span>إجمالي العملية</span>
+            <div class="transaction-total @(SellExceedsAvailable || SellNetInvalid || SellExceedsMarketValue ? "is-danger" : "")">
+                <span>الإجمالي</span>
                 <strong class="@BalanceClass">@MoneyValue(TransactionNetAmount)</strong>
                 @if (SellNetInvalid)
                 {
-                    <small>صافي البيع بعد الرسوم يجب أن يكون أكبر من صفر.</small>
+                    <small>صافي البيع بعد الرسوم لا يمكن أن يكون أقل من صفر.</small>
+                }
+                @if (SellExceedsMarketValue)
+                {
+                    <small>صافي البيع بعد الرسوم يجب ألا يتخطى القيمة السوقية الحالية للأصل.</small>
                 }
             </div>
         </div>
@@ -154,7 +158,7 @@
 
 <section class="surface">
     <div class="section-title">
-        <h2>آخر العمليات</h2>
+        <h2>العمليات</h2>
         <span>@transactions.Count عملية</span>
     </div>
 
@@ -170,7 +174,7 @@
                 </div>
                 <div class="transaction-numbers">
                     <span>الكمية <b class="@BalanceClass">@transaction.Quantity.ToString("N2")</b></span>
-                    <span>السعر <b class="@BalanceClass">@transaction.PricePerUnit.ToString("N5")</b></span>
+                    <span>السعر <b class="@BalanceClass">@transaction.PricePerUnit.ToString("N2")</b></span>
                     <span>الصافي <b class="@BalanceClass">@MoneyValue(transaction.NetAmount)</b></span>
                 </div>
                 <div class="row-actions">
@@ -205,6 +209,7 @@
     private string? message;
     private List<Asset> assets = new();
     private List<InvestmentTransaction> transactions = new();
+    private List<AssetSummary> holdings = new();
     private List<StockSearchResult> stockSuggestions = new();
     private List<StockSearchResult> manualSuggestions = new();
 
@@ -224,8 +229,8 @@
     private bool IsTcd => entryMode == "other" && manualType == "TCD";
     private string TodayIso => DateTime.Today.ToString("yyyy-MM-dd");
     private bool IsFutureTransactionDate => transactionDate.Date > DateTime.Today;
-    private bool IsSaveDisabled => busy || IsFutureTransactionDate || (transactionType == "Sell" && (!CanSelectSell || SellExceedsAvailable || SellNetInvalid));
-    private bool SellNetInvalid => transactionType == "Sell" && (quantity ?? 0m) > 0m && TransactionNetAmount <= 0;
+    private bool IsSaveDisabled => busy || IsFutureTransactionDate || (transactionType == "Sell" && (!CanSelectSell || SellExceedsAvailable || SellNetInvalid || SellExceedsMarketValue));
+    private bool SellNetInvalid => transactionType == "Sell" && (quantity ?? 0m) > 0m && TransactionNetAmount < 0;
     private decimal TransactionNetAmount
     {
         get
@@ -259,6 +264,14 @@
             return string.IsNullOrWhiteSpace(normalizedCode)
                 ? null
                 : assets.FirstOrDefault(a => string.Equals(a.AssetCode, normalizedCode, StringComparison.OrdinalIgnoreCase));
+        }
+    }
+    private AssetSummary? CurrentFormSummary
+    {
+        get
+        {
+            var asset = CurrentFormAsset;
+            return asset == null ? null : holdings.FirstOrDefault(h => h.Asset.AssetId == asset.AssetId);
         }
     }
     private List<InvestmentTransaction> CurrentAssetTransactionsExcludingEdit
@@ -305,7 +318,30 @@
         && quantity.HasValue
         && quantity.Value > 0
         && quantity.Value > AvailableSellAmount + 0.0000001m;
-    private string AvailableSellLabel => IsTcd ? $"{AvailableSellAmount:N2}" : $"{AvailableSellAmount:N5}";
+    private decimal AvailableSellMarketValue
+    {
+        get
+        {
+            var asset = CurrentFormAsset;
+            var summary = CurrentFormSummary;
+            if (asset == null || summary == null)
+            {
+                return 0m;
+            }
+
+            var editedSell = editingTransactionId.HasValue
+                ? transactions.FirstOrDefault(t => t.TransactionId == editingTransactionId.Value && t.TransactionType == TransactionKind.Sell)
+                : null;
+
+            var editedNet = editedSell?.AssetId == asset.AssetId ? editedSell.NetAmount : 0m;
+            return Math.Max(0m, summary.CurrentValue + editedNet);
+        }
+    }
+    private bool SellExceedsMarketValue => transactionType == "Sell"
+        && quantity.HasValue
+        && quantity.Value > 0
+        && TransactionNetAmount > AvailableSellMarketValue + 0.01m;
+    private string AvailableSellLabel => $"{AvailableSellAmount:N2}";
     private string? AvailableSellMaxAttribute => transactionType == "Sell"
         ? AvailableSellAmount.ToString("0.#####", System.Globalization.CultureInfo.InvariantCulture)
         : null;
@@ -328,6 +364,7 @@
     {
         assets = await Database.GetAssetsAsync();
         transactions = await Database.GetTransactionsAsync();
+        holdings = await Portfolio.GetHoldingsAsync();
     }
 
     private void OpenForm(string mode)
@@ -349,7 +386,7 @@
 
     private async Task OnStockQueryChanged(ChangeEventArgs e)
     {
-        stockQuery = ToAscii(e.Value?.ToString() ?? string.Empty).ToUpperInvariant();
+        stockQuery = ToAssetCode(e.Value?.ToString() ?? string.Empty).ToUpperInvariant();
         assetCode = stockQuery.Trim().ToUpperInvariant();
         assetName = string.Empty;
         stockSuggestions.Clear();
@@ -381,7 +418,7 @@
 
     private async Task OnManualAssetCodeChanged(ChangeEventArgs e)
     {
-        assetCode = ToAscii(e.Value?.ToString() ?? string.Empty).Trim().ToUpperInvariant();
+        assetCode = ToAssetCode(e.Value?.ToString() ?? string.Empty).Trim().ToUpperInvariant();
         assetName = string.Empty;
         manualSuggestions.Clear();
 
@@ -452,8 +489,12 @@
             if (SellNetInvalid)
             {
                 throw new InvalidOperationException(IsTcd
-                    ? "صافي السحب بعد الرسوم يجب أن يكون أكبر من صفر."
-                    : "صافي البيع بعد الرسوم يجب أن يكون أكبر من صفر.");
+                    ? "صافي السحب بعد الرسوم لا يمكن أن يكون أقل من صفر."
+                    : "صافي البيع بعد الرسوم لا يمكن أن يكون أقل من صفر.");
+            }
+            if (SellExceedsMarketValue)
+            {
+                throw new InvalidOperationException("صافي البيع بعد الرسوم يجب ألا يتخطى القيمة السوقية الحالية للأصل.");
             }
             await EnsureSellHasPriorBuyAsync();
             Asset? existingStockBeforeSave = null;
@@ -500,7 +541,7 @@
             var wasEditing = editingTransactionId.HasValue;
             CloseForm();
             await ReloadAsync();
-            await ShowMessageAsync(wasEditing ? "تم تعديل العملية." : "تم حفظ العملية.");
+            await ShowMessageAsync(wasEditing ? "تم تعديل العملية." : "تم إجراء العملية.");
         }
         catch (Exception ex)
         {
@@ -777,6 +818,9 @@
     }
 
     private static string ToAscii(string value) => new(value.Where(c => c <= 127).ToArray());
+    private static string ToAssetCode(string value) => new(value
+        .Where(c => c is >= 'A' and <= 'Z' or >= 'a' and <= 'z')
+        .ToArray());
 
     public void Dispose()
     {

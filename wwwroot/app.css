@@ -835,9 +835,10 @@ small,
 }
 
 .asset-controls {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, auto));
     align-items: end;
     gap: 8px;
+    justify-content: end;
 }
 
 .asset-controls label {
@@ -845,11 +846,24 @@ small,
     font-size: .76rem;
 }
 
+.asset-controls .price-editor {
+    grid-column: 1 / -1;
+}
+
 .compact-action {
     min-height: 34px;
     padding-inline: 8px;
     border-radius: 999px;
     font-size: .78rem;
+}
+
+.icon-action {
+    width: 38px;
+    min-width: 38px;
+    padding: 0;
+    display: inline-grid;
+    place-items: center;
+    font-size: 1rem;
 }
 
 label {
@@ -996,6 +1010,10 @@ select:disabled {
     display: grid;
     gap: 12px;
     padding: 14px;
+}
+
+.transaction-card .transaction-numbers {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .row-actions {

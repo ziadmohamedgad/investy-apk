@@ -88,7 +88,7 @@ public class LocalDatabase
         asset.AssetCode = NormalizeCode(asset.AssetCode);
         asset.AssetName = NormalizeEnglishText(asset.AssetName, nameof(asset.AssetName));
         asset.Currency = string.IsNullOrWhiteSpace(asset.Currency) ? "EGP" : asset.Currency.Trim().ToUpperInvariant();
-        asset.ExternalTicker = string.IsNullOrWhiteSpace(asset.ExternalTicker) ? null : NormalizeCode(asset.ExternalTicker);
+        asset.ExternalTicker = string.IsNullOrWhiteSpace(asset.ExternalTicker) ? null : ToAscii(asset.ExternalTicker).Trim().ToUpperInvariant();
         asset.Notes = string.IsNullOrWhiteSpace(asset.Notes) ? null : asset.Notes.Trim();
         asset.GoldCashbackPerGram = asset.AssetType == AssetType.Gold ? asset.GoldCashbackPerGram : 28.5m;
         asset.DailyAccrualAnnualRatePercent = asset.IsDailyAccrualFund && asset.DailyAccrualAnnualRatePercent > 0
@@ -196,7 +196,7 @@ public class LocalDatabase
 
     private static string NormalizeCode(string code)
     {
-        var normalized = ToAscii(code).Trim().ToUpperInvariant();
+        var normalized = ToAssetCode(code).Trim().ToUpperInvariant();
         if (string.IsNullOrWhiteSpace(normalized))
         {
             throw new InvalidOperationException("Asset code must use English letters.");
@@ -205,7 +205,7 @@ public class LocalDatabase
         return normalized;
     }
 
-    private static string NormalizeSearchCode(string code) => ToAscii(code).Trim().ToUpperInvariant();
+    private static string NormalizeSearchCode(string code) => ToAssetCode(code).Trim().ToUpperInvariant();
 
     private static string NormalizeEnglishText(string value, string fieldName)
     {
@@ -219,4 +219,8 @@ public class LocalDatabase
     }
 
     private static string ToAscii(string value) => new(value.Where(c => c <= 127).ToArray());
+
+    private static string ToAssetCode(string value) => new(value
+        .Where(c => c is >= 'A' and <= 'Z' or >= 'a' and <= 'z')
+        .ToArray());
 }

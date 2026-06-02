@@ -56,7 +56,9 @@ public class ExportService
         assetsSheet.Cell(1, 5).Value = "السعر الحالي";
         assetsSheet.Cell(1, 6).Value = "الكمية";
         assetsSheet.Cell(1, 7).Value = "القيمة السوقية";
-        assetsSheet.Cell(1, 8).Value = "الربح/الخسارة";
+        assetsSheet.Cell(1, 8).Value = "الربح/الخسارة غير المحققة";
+        assetsSheet.Cell(1, 9).Value = "الربح/الخسارة المحققة";
+        assetsSheet.Cell(1, 10).Value = "نسبة الربح/الخسارة المحققة";
         for (var i = 0; i < holdings.Count; i++)
         {
             var row = i + 2;
@@ -68,7 +70,9 @@ public class ExportService
             assetsSheet.Cell(row, 5).Value = item.CurrentPrice;
             assetsSheet.Cell(row, 6).Value = item.TotalUnitsHeld;
             assetsSheet.Cell(row, 7).Value = item.CurrentValue;
-            assetsSheet.Cell(row, 8).Value = item.TotalPnL;
+            assetsSheet.Cell(row, 8).Value = item.UnrealizedPnL;
+            assetsSheet.Cell(row, 9).Value = item.RealizedPnL;
+            assetsSheet.Cell(row, 10).Value = item.RealizedPnLPercent;
         }
 
         var transactionsSheet = workbook.Worksheets.Add("العمليات");

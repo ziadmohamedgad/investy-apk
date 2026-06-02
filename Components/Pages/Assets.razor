@@ -36,13 +36,13 @@
                 <span>الكمية <b class="@BalanceClass">@item.TotalUnitsHeld.ToString("N2")</b></span>
                 @if (!item.Asset.IsDailyAccrualFund)
                 {
-                    <span>متوسط الشراء <b class="@BalanceClass">@item.AverageBuyPrice.ToString("N5")</b></span>
+                    <span>متوسط الشراء <b class="@BalanceClass">@item.AverageBuyPrice.ToString("N2")</b></span>
                 }
-                <span>السعر الحالي <b class="@BalanceClass">@item.CurrentPrice.ToString("N5")</b></span>
+                <span>السعر الحالي <b class="@BalanceClass">@item.CurrentPrice.ToString("N2")</b></span>
                 <span>إجمالي المدفوع بالرسوم <b class="@BalanceClass">@MoneyValue(item.TotalPaidIncludingFees)</b></span>
                 <span>القيمة السوقية <b class="@BalanceClass">@MoneyValue(item.CurrentValue)</b></span>
-                <span>إجمالي الربح/الخسارة <b class="@($"{Tone(item.TotalPnL)} {BalanceClass}")">@MoneyValue(item.TotalPnL)</b></span>
-                <span>نسبة الربح/الخسارة <b class="@($"{Tone(item.TotalPnLPercent)} {BalanceClass}")">@PercentValue(item.TotalPnLPercent)</b></span>
+                <span>إجمالي الربح/الخسارة غير المحققة <b class="@($"{Tone(item.UnrealizedPnL)} {BalanceClass}")">@MoneyValue(item.UnrealizedPnL) <small>@PercentValue(item.UnrealizedPnLPercent)</small></b></span>
+                <span>إجمالي الربح/الخسارة المحققة <b class="@($"{Tone(item.RealizedPnL)} {BalanceClass}")">@MoneyValue(item.RealizedPnL) <small>@PercentValue(item.RealizedPnLPercent)</small></b></span>
             </div>
 
             <div class="inline-form asset-controls">
@@ -56,13 +56,21 @@
                 }
                 @if (!item.Asset.IsDailyAccrualFund)
                 {
-                    <label>تحديث السعر <input type="number" step="0.00001" @onchange="e => SetManualPriceAsync(item.Asset, e.Value?.ToString())" /></label>
+                    <button class="ghost compact-action" @onclick="() => TogglePriceEditor(item.Asset.AssetId)">تحديث السعر</button>
+                    @if (editingPriceAssetId == item.Asset.AssetId)
+                    {
+                        <label class="price-editor">السعر الجديد <input type="number" step="0.00001" @bind="manualPriceValue" @bind:event="oninput" /></label>
+                    }
                 }
                 @if (item.Asset.AssetType == AssetType.Stock && !string.IsNullOrWhiteSpace(item.Asset.ExternalTicker))
                 {
-                    <button class="ghost compact-action" @onclick="() => SyncAssetPriceAsync(item.Asset)">مزامنة</button>
+                    <button class="ghost compact-action icon-action" title="مزامنة السعر" @onclick="() => SyncAssetPriceAsync(item.Asset)">↻</button>
                 }
-                <button class="danger compact-action" @onclick="() => RequestDeleteAsset(item.Asset.AssetId)">حذف</button>
+                @if (editingPriceAssetId == item.Asset.AssetId)
+                {
+                    <button class="primary compact-action" @onclick="() => SetManualPriceAsync(item.Asset)">حفظ السعر</button>
+                }
+                <button class="danger compact-action icon-action" title="حذف" @onclick="() => RequestDeleteAsset(item.Asset.AssetId)">⌫</button>
             </div>
         </article>
     }
@@ -86,6 +94,8 @@
     private List<AssetSummary> holdings = new();
     private string? message;
     private int? pendingDeleteAssetId;
+    private int? editingPriceAssetId;
+    private decimal? manualPriceValue;
 
     protected override async Task OnInitializedAsync()
     {
@@ -106,12 +116,28 @@
         holdings = await Portfolio.GetHoldingsAsync();
     }
 
-    private async Task SetManualPriceAsync(Asset asset, string? value)
+    private void TogglePriceEditor(int assetId)
     {
-        if (decimal.TryParse(value, out var price) && price >= 0)
+        if (editingPriceAssetId == assetId)
         {
-            await Database.SavePriceAsync(new AssetPrice { AssetId = asset.AssetId, PriceDate = DateTime.Today, PriceValue = price, Source = PriceSource.Manual });
+            editingPriceAssetId = null;
+            manualPriceValue = null;
+            return;
+        }
+
+        editingPriceAssetId = assetId;
+        manualPriceValue = null;
+    }
+
+    private async Task SetManualPriceAsync(Asset asset)
+    {
+        if (manualPriceValue.HasValue && manualPriceValue.Value >= 0)
+        {
+            await Database.SavePriceAsync(new AssetPrice { AssetId = asset.AssetId, PriceDate = DateTime.Today, PriceValue = manualPriceValue.Value, Source = PriceSource.Manual });
+            editingPriceAssetId = null;
+            manualPriceValue = null;
             await ReloadAsync();
+            await ShowMessageAsync("تم تحديث السعر.");
         }
     }
 

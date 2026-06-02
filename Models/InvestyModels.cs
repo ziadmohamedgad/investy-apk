@@ -82,6 +82,7 @@ public record AssetSummary(
     decimal UnrealizedPnL,
     decimal UnrealizedPnLPercent,
     decimal RealizedPnL,
+    decimal RealizedPnLPercent,
     decimal TotalPnL,
     decimal TotalPnLPercent);
 
