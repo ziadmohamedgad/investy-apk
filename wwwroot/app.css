@@ -785,6 +785,19 @@ small,
 .asset-main {
     margin-bottom: 8px;
     gap: 8px;
+    direction: ltr;
+    justify-content: flex-start;
+    text-align: left;
+}
+
+.asset-meta {
+    display: grid;
+    min-width: 0;
+    flex: 1;
+    justify-items: start;
+    gap: 2px;
+    direction: ltr;
+    text-align: left;
 }
 
 .asset-tile .code {
@@ -1020,6 +1033,23 @@ select:disabled {
     display: grid;
     gap: 12px;
     padding: 14px;
+}
+
+.transaction-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    direction: ltr;
+    min-width: 0;
+}
+
+.transaction-meta {
+    display: grid;
+    gap: 2px;
+    justify-items: end;
+    direction: rtl;
+    text-align: right;
 }
 
 .transaction-type-buy {

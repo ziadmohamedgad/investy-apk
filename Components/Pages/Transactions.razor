@@ -167,10 +167,12 @@
         {
             var asset = assets.FirstOrDefault(a => a.AssetId == transaction.AssetId);
             <article class="transaction-card">
-                <div>
+                <div class="transaction-head">
                     <span class="code @CodeClass(asset)">@asset?.AssetCode</span>
-                    <strong class="@TransactionTypeClass(transaction)">@TransactionTypeLabel(transaction, asset)</strong>
-                    <small>@transaction.TransactionDate.ToString("yyyy/MM/dd")</small>
+                    <div class="transaction-meta">
+                        <strong class="@TransactionTypeClass(transaction)">@TransactionTypeLabel(transaction, asset)</strong>
+                        <small>@transaction.TransactionDate.ToString("yyyy/MM/dd")</small>
+                    </div>
                 </div>
                 <div class="transaction-numbers">
                     <span>الكمية <b class="@BalanceClass">@transaction.Quantity.ToString("N2")</b></span>
