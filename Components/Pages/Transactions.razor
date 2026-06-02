@@ -391,6 +391,12 @@
 
     private void OpenForm(string mode)
     {
+        if (formOpen && entryMode == mode)
+        {
+            CloseForm();
+            return;
+        }
+
         ResetForm(keepMode: true);
         entryMode = mode;
         formOpen = true;
