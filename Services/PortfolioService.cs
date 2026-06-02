@@ -167,8 +167,8 @@ public class PortfolioService
             if (quantity > unitsHeld + QuantityTolerance)
             {
                 throw new InvalidOperationException(asset.IsDailyAccrualFund
-                    ? $"لا يمكن سحب مبلغ يتخطى المتاح لهذا الأصل. المتاح حاليًا {unitsHeld:N5} وحدة."
-                    : $"لا يمكن بيع {quantity:N5}. المتاح عند تاريخ العملية {unitsHeld:N5}.");
+                    ? $"لا يمكن إجراء هذه العملية لأن إجمالي السحب سيصبح أكبر من إجمالي الإيداع المتاح لهذا الأصل عند تاريخ العملية. المتاح {unitsHeld:N2} والمطلوب {quantity:N2}."
+                    : $"لا يمكن إجراء هذه العملية لأن إجمالي الكمية المباعة سيصبح أكبر من إجمالي الكمية المشتراة المتاحة لهذا الأصل عند تاريخ العملية. المتاح {unitsHeld:N2} والمطلوب {quantity:N2}.");
             }
 
             unitsHeld -= quantity;
