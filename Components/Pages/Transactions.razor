@@ -37,7 +37,7 @@
             {
                 <label>
                     البحث عن سهم بالكود
-                    <input class="field ascii-only" value="@stockQuery" @oninput="OnStockQueryChanged" disabled="@editingTransactionId.HasValue" />
+                    <input class="field ascii-only" @bind="StockQueryInput" @bind:event="oninput" @bind:after="OnStockQueryChangedAsync" disabled="@editingTransactionId.HasValue" />
                 </label>
                 @if (stockSuggestions.Count > 0)
                 {
@@ -66,7 +66,7 @@
                 </label>
                 <label>
                     كود الأصل
-                    <input class="field ascii-only" value="@assetCode" @oninput="OnManualAssetCodeChanged" disabled="@editingTransactionId.HasValue" />
+                    <input class="field ascii-only" @bind="AssetCodeInput" @bind:event="oninput" @bind:after="OnManualAssetCodeChangedAsync" disabled="@editingTransactionId.HasValue" />
                 </label>
                 @if (manualSuggestions.Count > 0)
                 {
@@ -140,11 +140,11 @@
                 <strong class="@BalanceClass">@MoneyValue(TransactionNetAmount)</strong>
                 @if (SellNetInvalid)
                 {
-                    <small>صافي البيع بعد الرسوم لا يمكن أن يكون أقل من صفر.</small>
+                    <small>@NetSellWarningText</small>
                 }
                 @if (SellExceedsMarketValue)
                 {
-                    <small>صافي البيع بعد الرسوم يجب ألا يتخطى القيمة السوقية الحالية للأصل.</small>
+                    <small>@NetSellWarningText</small>
                 }
             </div>
         </div>
@@ -231,6 +231,28 @@
     private bool IsFutureTransactionDate => transactionDate.Date > DateTime.Today;
     private bool IsSaveDisabled => busy || IsFutureTransactionDate || (transactionType == "Sell" && (!CanSelectSell || SellExceedsAvailable || SellNetInvalid || SellExceedsMarketValue));
     private bool SellNetInvalid => transactionType == "Sell" && (quantity ?? 0m) > 0m && TransactionNetAmount < 0;
+    private string NetSellWarningText => IsTcd
+        ? "صافي السحب بعد الرسوم لا يمكن أن يكون أكبر من القيمة السوقية للأصل"
+        : "صافي البيع بعد الرسوم لا يمكن أن يكون أكبر من القيمة السوقية للأصل";
+    private string StockQueryInput
+    {
+        get => stockQuery;
+        set
+        {
+            stockQuery = ToAssetCode(value).ToUpperInvariant();
+            assetCode = stockQuery.Trim().ToUpperInvariant();
+            assetName = string.Empty;
+        }
+    }
+    private string AssetCodeInput
+    {
+        get => assetCode;
+        set
+        {
+            assetCode = ToAssetCode(value).Trim().ToUpperInvariant();
+            assetName = string.Empty;
+        }
+    }
     private decimal TransactionNetAmount
     {
         get
@@ -384,11 +406,8 @@
         formOpen = false;
     }
 
-    private async Task OnStockQueryChanged(ChangeEventArgs e)
+    private async Task OnStockQueryChangedAsync()
     {
-        stockQuery = ToAssetCode(e.Value?.ToString() ?? string.Empty).ToUpperInvariant();
-        assetCode = stockQuery.Trim().ToUpperInvariant();
-        assetName = string.Empty;
         stockSuggestions.Clear();
         manualSuggestions.Clear();
 
@@ -416,10 +435,8 @@
         EnsureTransactionTypeAllowed();
     }
 
-    private async Task OnManualAssetCodeChanged(ChangeEventArgs e)
+    private async Task OnManualAssetCodeChangedAsync()
     {
-        assetCode = ToAssetCode(e.Value?.ToString() ?? string.Empty).Trim().ToUpperInvariant();
-        assetName = string.Empty;
         manualSuggestions.Clear();
 
         if (string.IsNullOrWhiteSpace(assetCode))
@@ -488,13 +505,11 @@
             }
             if (SellNetInvalid)
             {
-                throw new InvalidOperationException(IsTcd
-                    ? "صافي السحب بعد الرسوم لا يمكن أن يكون أقل من صفر."
-                    : "صافي البيع بعد الرسوم لا يمكن أن يكون أقل من صفر.");
+                throw new InvalidOperationException(NetSellWarningText);
             }
             if (SellExceedsMarketValue)
             {
-                throw new InvalidOperationException("صافي البيع بعد الرسوم يجب ألا يتخطى القيمة السوقية الحالية للأصل.");
+                throw new InvalidOperationException(NetSellWarningText);
             }
             await EnsureSellHasPriorBuyAsync();
             Asset? existingStockBeforeSave = null;
@@ -748,7 +763,16 @@
                 if (remaining.Count > 0)
                 {
                     var accrualStartDate = PortfolioService.GetDailyAccrualStartDate(asset, remaining);
-                    PortfolioService.ValidateTransactionSequence(asset, remaining, accrualStartDate);
+                    try
+                    {
+                        PortfolioService.ValidateTransactionSequence(asset, remaining, accrualStartDate);
+                    }
+                    catch (InvalidOperationException)
+                    {
+                        throw new InvalidOperationException(asset.IsDailyAccrualFund
+                            ? "لا يمكن حذف هذا الإيداع لأن هناك عملية سحب تعتمد عليه."
+                            : "لا يمكن حذف عملية الشراء لأن هناك عملية بيع تعتمد عليها.");
+                    }
                 }
             }
 
@@ -767,7 +791,7 @@
         message = text;
         messageIsError = isError;
         StateHasChanged();
-        await Task.Delay(1500);
+        await Task.Delay(1750);
         if (message == text)
         {
             message = null;

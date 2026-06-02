@@ -135,7 +135,9 @@ public class PortfolioService
         var currentSummary = CalculateAssetSummary(asset, existingTransactions, currentPrice);
         if (netAmount > currentSummary.CurrentValue + 0.01m)
         {
-            throw new InvalidOperationException("صافي البيع بعد الرسوم يجب ألا يتخطى القيمة السوقية الحالية للأصل.");
+            throw new InvalidOperationException(asset.IsDailyAccrualFund
+                ? "صافي السحب بعد الرسوم لا يمكن أن يكون أكبر من القيمة السوقية للأصل"
+                : "صافي البيع بعد الرسوم لا يمكن أن يكون أكبر من القيمة السوقية للأصل");
         }
     }
 
@@ -206,7 +208,9 @@ public class PortfolioService
             }
         }
 
+        unitsHeld = Math.Abs(unitsHeld) <= QuantityTolerance ? 0m : unitsHeld;
         var costBasis = avgCost * unitsHeld;
+        var remainingAverageCost = unitsHeld > QuantityTolerance ? avgCost : 0m;
         var currentValue = asset.AssetType == AssetType.Gold
             ? unitsHeld * (currentPrice + asset.GoldCashbackPerGram)
             : unitsHeld * currentPrice;
@@ -215,7 +219,7 @@ public class PortfolioService
         return new AssetSummary(
             asset,
             Math.Round(unitsHeld, 5),
-            Math.Round(avgCost, 5),
+            Math.Round(remainingAverageCost, 5),
             Math.Round(costBasis, 2),
             Math.Round(totalFeesPaid, 2),
             Math.Round(costBasis, 2),
@@ -267,15 +271,17 @@ public class PortfolioService
             }
         }
 
+        unitsHeld = Math.Abs(unitsHeld) <= QuantityTolerance ? 0m : unitsHeld;
         var currentPrice = GetDailyAccrualUnitPrice(asset, DateTime.UtcNow, accrualStartDate);
         var costBasis = avgCost * unitsHeld;
+        var remainingAverageCost = unitsHeld > QuantityTolerance ? avgCost : 0m;
         var currentValue = unitsHeld * currentPrice;
         var unrealizedPnL = currentValue - costBasis;
 
         return new AssetSummary(
             asset,
             Math.Round(unitsHeld, 5),
-            Math.Round(avgCost, 5),
+            Math.Round(remainingAverageCost, 5),
             Math.Round(costBasis, 2),
             Math.Round(totalFeesPaid, 2),
             Math.Round(costBasis, 2),
@@ -310,7 +316,7 @@ public class PortfolioService
 
             if (kind == TransactionKind.Sell && standardNetAmount < 0)
             {
-                throw new InvalidOperationException("صافي البيع بعد الرسوم لا يمكن أن يكون أقل من صفر.");
+                throw new InvalidOperationException("صافي البيع بعد الرسوم لا يمكن أن يكون أكبر من القيمة السوقية للأصل");
             }
 
             return (quantity, pricePerUnit, totalAmount, standardNetAmount);
@@ -327,7 +333,7 @@ public class PortfolioService
         var accrualNetAmount = kind == TransactionKind.Buy ? amount + fees : amount - fees;
         if (kind == TransactionKind.Sell && accrualNetAmount < 0)
         {
-            throw new InvalidOperationException("صافي السحب بعد الرسوم لا يمكن أن يكون أقل من صفر.");
+            throw new InvalidOperationException("صافي السحب بعد الرسوم لا يمكن أن يكون أكبر من القيمة السوقية للأصل");
         }
 
         return (units, unitPrice, amount, accrualNetAmount);

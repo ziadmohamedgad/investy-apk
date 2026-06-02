@@ -835,19 +835,14 @@ small,
 }
 
 .asset-controls {
-    grid-template-columns: repeat(4, minmax(0, auto));
-    align-items: end;
-    gap: 8px;
-    justify-content: end;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 7px;
+    align-items: center;
 }
 
 .asset-controls label {
     grid-column: 1 / -1;
     font-size: .76rem;
-}
-
-.asset-controls .price-editor {
-    grid-column: 1 / -1;
 }
 
 .compact-action {
@@ -857,13 +852,15 @@ small,
     font-size: .78rem;
 }
 
-.icon-action {
-    width: 38px;
-    min-width: 38px;
-    padding: 0;
-    display: inline-grid;
-    place-items: center;
-    font-size: 1rem;
+.asset-action-button {
+    width: 100%;
+    min-width: 0;
+    padding-inline: 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    white-space: nowrap;
 }
 
 label {
@@ -1087,6 +1084,15 @@ select:disabled {
 
 .confirm-card p {
     color: var(--muted);
+}
+
+.price-edit-card {
+    text-align: right;
+}
+
+.price-edit-card p {
+    font-weight: 900;
+    color: var(--primary);
 }
 
 .confirm-actions {
