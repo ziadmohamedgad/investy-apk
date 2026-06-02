@@ -827,7 +827,7 @@ small,
     gap: 6px;
 }
 
-.asset-tile .stat-grid span {
+.asset-tile .stat-grid > span {
     min-height: 44px;
     padding: 7px 8px;
     border: 1px solid var(--border);
@@ -840,16 +840,18 @@ small,
     text-align: right;
 }
 
-.asset-tile .stat-grid b {
+.asset-tile .stat-grid > span b {
     display: block;
-    justify-self: end;
+    width: 100%;
+    justify-self: stretch;
     align-self: end;
     margin-top: auto;
-    text-align: right;
+    text-align: left;
+    direction: ltr;
     font-size: .82rem;
 }
 
-.asset-tile .stat-grid .market-value-stat {
+.asset-tile .stat-grid > .market-value-stat {
     grid-column: 1 / -1;
     min-height: 40px;
     display: flex;
@@ -858,8 +860,9 @@ small,
     gap: 12px;
 }
 
-.asset-tile .stat-grid .market-value-stat b {
+.asset-tile .stat-grid > .market-value-stat b {
     flex: 0 0 auto;
+    width: auto;
     margin-top: 0;
     text-align: left;
 }
@@ -871,11 +874,11 @@ small,
     direction: rtl;
 }
 
-.asset-tile .closed-position-grid span {
+.asset-tile .closed-position-grid > span {
     min-height: 54px;
 }
 
-.asset-tile .closed-position-grid .closed-pnl-stat {
+.asset-tile .closed-position-grid > .closed-pnl-stat {
     flex: 1 1 auto;
     min-height: 40px;
     display: flex;
@@ -884,8 +887,9 @@ small,
     gap: 12px;
 }
 
-.asset-tile .closed-position-grid .closed-pnl-stat b {
+.asset-tile .closed-position-grid > .closed-pnl-stat b {
     flex: 0 0 auto;
+    width: auto;
     margin-top: 0;
     text-align: left;
 }

@@ -35,7 +35,7 @@
             <div class="stat-grid @(item.IsClosedPosition ? "closed-position-grid" : "")">
                 @if (item.IsClosedPosition)
                 {
-                    <span class="closed-pnl-stat">إجمالي الربح/الخسارة <b class="@($"{Tone(item.RealizedPnL + item.UnrealizedPnL)} {BalanceClass}")">@MoneyValue(item.RealizedPnL + item.UnrealizedPnL)</b></span>
+                    <span class="closed-pnl-stat">إجمالي الربح/الخسارة المحققة <b class="@($"{Tone(item.RealizedPnL + item.UnrealizedPnL)} {BalanceClass}")">@MoneyValue(item.RealizedPnL + item.UnrealizedPnL)</b></span>
                     <button class="danger compact-action asset-action-button icon-only-asset-action closed-delete-action" title="حذف" aria-label="حذف الأصل" @onclick="() => RequestDeleteAsset(item.Asset.AssetId)"><span aria-hidden="true">🗑</span></button>
                 }
                 else if (item.Asset.IsDailyAccrualFund)
