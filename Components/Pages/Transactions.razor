@@ -37,7 +37,7 @@
             {
                 <label>
                     البحث عن سهم بالكود
-                    <input class="field ascii-only" @bind="StockQueryInput" @bind:event="oninput" @bind:after="OnStockQueryChangedAsync" disabled="@editingTransactionId.HasValue" />
+                    <input class="field ascii-only" data-asset-code-input="true" @bind="StockQueryInput" @bind:event="oninput" @bind:after="OnStockQueryChangedAsync" disabled="@editingTransactionId.HasValue" />
                 </label>
                 @if (stockSuggestions.Count > 0)
                 {
@@ -66,7 +66,7 @@
                 </label>
                 <label>
                     كود الأصل
-                    <input class="field ascii-only" @bind="AssetCodeInput" @bind:event="oninput" @bind:after="OnManualAssetCodeChangedAsync" disabled="@editingTransactionId.HasValue" />
+                    <input class="field ascii-only" data-asset-code-input="true" @bind="AssetCodeInput" @bind:event="oninput" @bind:after="OnManualAssetCodeChangedAsync" disabled="@editingTransactionId.HasValue" />
                 </label>
                 @if (manualSuggestions.Count > 0)
                 {
@@ -770,8 +770,8 @@
                     catch (InvalidOperationException)
                     {
                         throw new InvalidOperationException(asset.IsDailyAccrualFund
-                            ? "لا يمكن حذف هذا الإيداع لأن هناك عملية سحب تعتمد عليه."
-                            : "لا يمكن حذف عملية الشراء لأن هناك عملية بيع تعتمد عليها.");
+                            ? "لا يمكن حذف هذه العملية لأن إجمالي السحب سيصبح أكبر من إجمالي الإيداع لهذا الأصل. راجع سجل معاملاتك جيدًا."
+                            : "لا يمكن حذف هذه العملية لأن إجمالي الكمية المباعة سيصبح أكبر من إجمالي الكمية المشتراة لهذا الأصل. راجع سجل معاملاتك جيدًا.");
                     }
                 }
             }

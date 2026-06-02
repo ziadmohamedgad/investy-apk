@@ -44,11 +44,42 @@
                 window.getSelection?.().removeAllRanges();
             }
         }, { passive: true });
+        const assetCodeSelector = '[data-asset-code-input="true"]';
+        const isAssetCodeValue = (value) => /^[A-Za-z]*$/.test(value ?? '');
+
         document.addEventListener('beforeinput', (event) => {
-            if (!event.target.closest('.ascii-only') || !event.data) {
+            const target = event.target;
+            if (!target?.closest) {
                 return;
             }
+
+            if (target.closest(assetCodeSelector)) {
+                const text = event.data ?? '';
+                if (event.inputType?.startsWith('delete') || event.inputType?.startsWith('history')) {
+                    return;
+                }
+                if (!isAssetCodeValue(text)) {
+                    event.preventDefault();
+                }
+                return;
+            }
+
+            if (!target.closest('.ascii-only') || !event.data) {
+                return;
+            }
+
             if (/[^\x00-\x7F]/.test(event.data)) {
+                event.preventDefault();
+            }
+        });
+        document.addEventListener('paste', (event) => {
+            const target = event.target;
+            if (!target?.closest?.(assetCodeSelector)) {
+                return;
+            }
+
+            const text = event.clipboardData?.getData('text') ?? '';
+            if (!isAssetCodeValue(text)) {
                 event.preventDefault();
             }
         });
@@ -57,7 +88,10 @@
             if (!target.closest?.('.ascii-only') || typeof target.value !== 'string') {
                 return;
             }
-            const sanitized = target.value.replace(/[^\x00-\x7F]/g, '');
+
+            const sanitized = target.closest(assetCodeSelector)
+                ? target.value.replace(/[^A-Za-z]/g, '').toUpperCase()
+                : target.value.replace(/[^\x00-\x7F]/g, '');
             if (sanitized !== target.value) {
                 target.value = sanitized;
                 target.dispatchEvent(new Event('input', { bubbles: true }));
