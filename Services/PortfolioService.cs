@@ -5,6 +5,7 @@ namespace Investy.Mobile.Services;
 public class PortfolioService
 {
     private const decimal QuantityTolerance = 0.0000001m;
+    private const decimal ClosedPositionQuantityTolerance = 0.005m;
     private readonly LocalDatabase _database;
 
     public PortfolioService(LocalDatabase database)
@@ -29,7 +30,13 @@ public class PortfolioService
                 ? GetDailyAccrualUnitPrice(asset, DateTime.UtcNow, GetDailyAccrualStartDate(asset, transactions))
                 : (await _database.GetLatestPriceAsync(asset.AssetId))?.PriceValue ?? 0m;
 
-            result.Add(CalculateAssetSummary(asset, transactions, currentPrice));
+            var summary = CalculateAssetSummary(asset, transactions, currentPrice);
+            if (summary.IsClosedPosition && Math.Abs(summary.RealizedPnL + summary.UnrealizedPnL) <= 0.005m)
+            {
+                continue;
+            }
+
+            result.Add(summary);
         }
 
         return result;
@@ -211,7 +218,7 @@ public class PortfolioService
         unitsHeld = Math.Abs(unitsHeld) <= QuantityTolerance ? 0m : unitsHeld;
         var costBasis = avgCost * unitsHeld;
         var remainingAverageCost = unitsHeld > QuantityTolerance ? avgCost : 0m;
-        var isClosedPosition = Math.Abs(unitsHeld) <= QuantityTolerance;
+        var isClosedPosition = Math.Abs(unitsHeld) < ClosedPositionQuantityTolerance;
         var currentValue = asset.AssetType == AssetType.Gold
             ? unitsHeld * (currentPrice + asset.GoldCashbackPerGram)
             : unitsHeld * currentPrice;
@@ -277,7 +284,7 @@ public class PortfolioService
         var currentPrice = GetDailyAccrualUnitPrice(asset, DateTime.UtcNow, accrualStartDate);
         var costBasis = avgCost * unitsHeld;
         var remainingAverageCost = unitsHeld > QuantityTolerance ? avgCost : 0m;
-        var isClosedPosition = Math.Abs(unitsHeld) <= QuantityTolerance;
+        var isClosedPosition = Math.Abs(unitsHeld) < ClosedPositionQuantityTolerance;
         var currentValue = unitsHeld * currentPrice;
         var unrealizedPnL = currentValue - costBasis;
 

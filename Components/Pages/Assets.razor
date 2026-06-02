@@ -35,7 +35,7 @@
             <div class="stat-grid @(item.IsClosedPosition ? "closed-position-grid" : "")">
                 @if (item.IsClosedPosition)
                 {
-                    <span>إجمالي الربح/الخسارة <b class="@($"{Tone(item.RealizedPnL)} {BalanceClass}")">@MoneyValue(item.RealizedPnL)</b></span>
+                    <span>إجمالي الربح/الخسارة <b class="@($"{Tone(item.RealizedPnL + item.UnrealizedPnL)} {BalanceClass}")">@MoneyValue(item.RealizedPnL + item.UnrealizedPnL)</b></span>
                 }
                 else if (item.Asset.IsDailyAccrualFund)
                 {
