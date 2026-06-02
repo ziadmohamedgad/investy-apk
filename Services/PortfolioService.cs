@@ -211,7 +211,7 @@ public class PortfolioService
         unitsHeld = Math.Abs(unitsHeld) <= QuantityTolerance ? 0m : unitsHeld;
         var costBasis = avgCost * unitsHeld;
         var remainingAverageCost = unitsHeld > QuantityTolerance ? avgCost : 0m;
-        var isClosedPosition = transactions.Count == 0 && Math.Abs(asset.ClosedRealizedPnL) > 0.005m;
+        var isClosedPosition = Math.Abs(unitsHeld) <= QuantityTolerance;
         var currentValue = asset.AssetType == AssetType.Gold
             ? unitsHeld * (currentPrice + asset.GoldCashbackPerGram)
             : unitsHeld * currentPrice;
@@ -277,7 +277,7 @@ public class PortfolioService
         var currentPrice = GetDailyAccrualUnitPrice(asset, DateTime.UtcNow, accrualStartDate);
         var costBasis = avgCost * unitsHeld;
         var remainingAverageCost = unitsHeld > QuantityTolerance ? avgCost : 0m;
-        var isClosedPosition = transactions.Count == 0 && Math.Abs(asset.ClosedRealizedPnL) > 0.005m;
+        var isClosedPosition = Math.Abs(unitsHeld) <= QuantityTolerance;
         var currentValue = unitsHeld * currentPrice;
         var unrealizedPnL = currentValue - costBasis;
 
