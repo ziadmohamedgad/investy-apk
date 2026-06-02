@@ -36,6 +36,7 @@
                 @if (item.IsClosedPosition)
                 {
                     <span class="closed-pnl-stat">إجمالي الربح/الخسارة <b class="@($"{Tone(item.RealizedPnL + item.UnrealizedPnL)} {BalanceClass}")">@MoneyValue(item.RealizedPnL + item.UnrealizedPnL)</b></span>
+                    <button class="danger compact-action asset-action-button icon-only-asset-action closed-delete-action" title="حذف" aria-label="حذف الأصل" @onclick="() => RequestDeleteAsset(item.Asset.AssetId)"><span aria-hidden="true">🗑</span></button>
                 }
                 else if (item.Asset.IsDailyAccrualFund)
                 {
@@ -55,21 +56,24 @@
                 }
             </div>
 
-            <div class="inline-form asset-controls">
-                @if (!item.IsClosedPosition && item.Asset.IsDailyAccrualFund)
+            @if (!item.IsClosedPosition)
+            {
+                <div class="inline-form asset-controls">
+                @if (item.Asset.IsDailyAccrualFund)
                 {
                     <button class="ghost compact-action asset-action-button" @onclick="() => OpenPriceEditor(item)">تعديل النسبة</button>
                 }
-                else if (!item.IsClosedPosition)
+                else
                 {
                     <button class="ghost compact-action asset-action-button" @onclick="() => OpenPriceEditor(item)">تعديل السعر</button>
                 }
-                @if (!item.IsClosedPosition && item.Asset.AssetType == AssetType.Stock && !string.IsNullOrWhiteSpace(item.Asset.ExternalTicker))
+                @if (item.Asset.AssetType == AssetType.Stock && !string.IsNullOrWhiteSpace(item.Asset.ExternalTicker))
                 {
                     <button class="ghost compact-action asset-action-button" title="مزامنة السعر" @onclick="() => SyncAssetPriceAsync(item.Asset)">مزامنة السعر</button>
                 }
                 <button class="danger compact-action asset-action-button icon-only-asset-action" title="حذف" aria-label="حذف الأصل" @onclick="() => RequestDeleteAsset(item.Asset.AssetId)"><span aria-hidden="true">🗑</span></button>
-            </div>
+                </div>
+            }
         </article>
     }
 </section>

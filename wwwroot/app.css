@@ -865,7 +865,10 @@ small,
 }
 
 .asset-tile .closed-position-grid {
-    grid-template-columns: 1fr;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    direction: rtl;
 }
 
 .asset-tile .closed-position-grid span {
@@ -873,6 +876,7 @@ small,
 }
 
 .asset-tile .closed-position-grid .closed-pnl-stat {
+    flex: 1 1 auto;
     min-height: 40px;
     display: flex;
     align-items: center;
@@ -884,6 +888,12 @@ small,
     flex: 0 0 auto;
     margin-top: 0;
     text-align: left;
+}
+
+.asset-tile .closed-position-grid .closed-delete-action {
+    flex: 0 0 38px;
+    width: 38px;
+    min-width: 38px;
 }
 
 .inline-form,
