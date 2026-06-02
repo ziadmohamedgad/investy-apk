@@ -157,7 +157,6 @@ public class PortfolioService
         decimal avgCost = 0;
         decimal realizedPnL = 0;
         decimal totalFeesPaid = 0;
-        decimal totalBuyOutflow = 0;
 
         foreach (var transaction in transactions.OrderBy(t => t.TransactionDate).ThenBy(t => t.TransactionId))
         {
@@ -170,7 +169,6 @@ public class PortfolioService
                 var previousTotal = avgCost * unitsHeld;
                 var newTotal = transaction.TotalAmount + goldPerGramAmount + transaction.Fees;
                 totalFeesPaid += transaction.Fees;
-                totalBuyOutflow += newTotal;
                 unitsHeld += transaction.Quantity;
                 avgCost = unitsHeld > 0 ? (previousTotal + newTotal) / unitsHeld : 0;
             }
@@ -195,7 +193,7 @@ public class PortfolioService
             Math.Round(avgCost, 5),
             Math.Round(costBasis, 2),
             Math.Round(totalFeesPaid, 2),
-            Math.Round(totalBuyOutflow, 2),
+            Math.Round(costBasis, 2),
             Math.Round(currentPrice, 5),
             Math.Round(currentValue, 2),
             Math.Round(unrealizedPnL, 2),
@@ -211,7 +209,6 @@ public class PortfolioService
         decimal avgCost = 0;
         decimal realizedPnL = 0;
         decimal totalFeesPaid = 0;
-        decimal totalBuyOutflow = 0;
         var accrualStartDate = GetDailyAccrualStartDate(asset, transactions);
 
         foreach (var transaction in transactions.OrderBy(t => t.TransactionDate).ThenBy(t => t.TransactionId))
@@ -229,7 +226,6 @@ public class PortfolioService
                 var previousTotal = avgCost * unitsHeld;
                 var newTotal = transaction.TotalAmount + transaction.Fees;
                 totalFeesPaid += transaction.Fees;
-                totalBuyOutflow += newTotal;
                 unitsHeld += units;
                 avgCost = unitsHeld > 0 ? (previousTotal + newTotal) / unitsHeld : 0;
             }
@@ -253,7 +249,7 @@ public class PortfolioService
             Math.Round(avgCost, 5),
             Math.Round(costBasis, 2),
             Math.Round(totalFeesPaid, 2),
-            Math.Round(totalBuyOutflow, 2),
+            Math.Round(costBasis, 2),
             Math.Round(currentPrice, 5),
             Math.Round(currentValue, 2),
             Math.Round(unrealizedPnL, 2),
@@ -282,6 +278,11 @@ public class PortfolioService
                 ? totalAmount + goldPerGramAmount + fees
                 : totalAmount + goldPerGramAmount - fees;
 
+            if (kind == TransactionKind.Sell && standardNetAmount <= 0)
+            {
+                throw new InvalidOperationException("صافي البيع بعد الرسوم يجب أن يكون أكبر من صفر.");
+            }
+
             return (quantity, pricePerUnit, totalAmount, standardNetAmount);
         }
 
@@ -294,6 +295,11 @@ public class PortfolioService
         var amount = quantity;
         var units = amount / unitPrice;
         var accrualNetAmount = kind == TransactionKind.Buy ? amount + fees : amount - fees;
+        if (kind == TransactionKind.Sell && accrualNetAmount <= 0)
+        {
+            throw new InvalidOperationException("صافي السحب بعد الرسوم يجب أن يكون أكبر من صفر.");
+        }
+
         return (units, unitPrice, amount, accrualNetAmount);
     }
 

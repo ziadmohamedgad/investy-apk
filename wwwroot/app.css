@@ -778,11 +778,29 @@ small,
 }
 
 .asset-tile {
-    padding: 14px;
+    padding: 11px;
+    border-radius: 15px;
 }
 
 .asset-main {
-    margin-bottom: 12px;
+    margin-bottom: 8px;
+    gap: 8px;
+}
+
+.asset-tile .code {
+    min-width: 50px;
+    min-height: 28px;
+    padding: 3px 7px;
+    border-radius: 9px;
+    font-size: .82rem;
+}
+
+.asset-tile .asset-main strong {
+    font-size: .92rem;
+}
+
+.asset-tile .asset-main small {
+    font-size: .72rem;
 }
 
 .stat-grid {
@@ -790,15 +808,20 @@ small,
 }
 
 .asset-tile .stat-grid {
-    gap: 8px;
+    gap: 6px;
 }
 
 .asset-tile .stat-grid span {
-    min-height: 52px;
-    padding: 9px 10px;
+    min-height: 44px;
+    padding: 7px 8px;
     border: 1px solid var(--border);
-    border-radius: 13px;
+    border-radius: 11px;
     background: color-mix(in srgb, var(--surface-2) 62%, transparent);
+    font-size: .72rem;
+}
+
+.asset-tile .stat-grid b {
+    font-size: .82rem;
 }
 
 .inline-form,
@@ -814,17 +837,19 @@ small,
 .asset-controls {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     align-items: end;
+    gap: 8px;
 }
 
 .asset-controls label {
     grid-column: 1 / -1;
+    font-size: .76rem;
 }
 
 .compact-action {
-    min-height: 38px;
-    padding-inline: 10px;
+    min-height: 34px;
+    padding-inline: 8px;
     border-radius: 999px;
-    font-size: .84rem;
+    font-size: .78rem;
 }
 
 label {
@@ -833,6 +858,47 @@ label {
     color: var(--text);
     font-size: .86rem;
     font-weight: 900;
+}
+
+.field-hint {
+    color: var(--muted);
+    font-size: .75rem;
+    font-weight: 800;
+}
+
+.field-hint.is-error {
+    color: var(--danger);
+}
+
+.transaction-total {
+    display: grid;
+    gap: 4px;
+    padding: 11px 12px;
+    border: 1px solid color-mix(in srgb, var(--primary) 24%, transparent);
+    border-radius: 14px;
+    background: color-mix(in srgb, var(--primary) 8%, transparent);
+}
+
+.transaction-total span {
+    color: var(--muted);
+    font-size: .76rem;
+    font-weight: 900;
+}
+
+.transaction-total strong {
+    color: var(--text);
+    font-size: 1rem;
+}
+
+.transaction-total small {
+    color: var(--danger);
+    font-size: .76rem;
+    font-weight: 900;
+}
+
+.transaction-total.is-danger {
+    border-color: color-mix(in srgb, var(--danger) 44%, transparent);
+    background: color-mix(in srgb, var(--danger) 11%, transparent);
 }
 
 .field,
