@@ -37,31 +37,30 @@
                 {
                     <span>إجمالي الربح/الخسارة <b class="@($"{Tone(item.RealizedPnL)} {BalanceClass}")">@MoneyValue(item.RealizedPnL)</b></span>
                 }
+                else if (item.Asset.IsDailyAccrualFund)
+                {
+                    <span>إجمالي الربح/الخسارة غير المحققة <b class="@($"{Tone(item.UnrealizedPnL)} {BalanceClass}")">@MoneyValue(item.UnrealizedPnL) <small>@PercentValue(item.UnrealizedPnLPercent)</small></b></span>
+                    <span>إجمالي الربح/الخسارة المحققة <b class="@($"{Tone(item.RealizedPnL)} {BalanceClass}")">@MoneyValue(item.RealizedPnL)</b></span>
+                    <span class="market-value-stat">القيمة السوقية <b class="@BalanceClass">@MoneyValue(item.CurrentValue)</b></span>
+                }
                 else
                 {
                     <span>الكمية <b class="@BalanceClass">@item.TotalUnitsHeld.ToString("N2")</b></span>
-                    @if (!item.Asset.IsDailyAccrualFund)
-                    {
-                        <span>متوسط الشراء <b class="@BalanceClass">@item.AverageBuyPrice.ToString("N2")</b></span>
-                    }
+                    <span>متوسط الشراء <b class="@BalanceClass">@item.AverageBuyPrice.ToString("N2")</b></span>
                     <span>السعر الحالي <b class="@BalanceClass">@item.CurrentPrice.ToString("N2")</b></span>
                     <span>إجمالي المدفوع بالرسوم <b class="@BalanceClass">@MoneyValue(item.TotalPaidIncludingFees)</b></span>
-                    <span>القيمة السوقية <b class="@BalanceClass">@MoneyValue(item.CurrentValue)</b></span>
                     <span>إجمالي الربح/الخسارة غير المحققة <b class="@($"{Tone(item.UnrealizedPnL)} {BalanceClass}")">@MoneyValue(item.UnrealizedPnL) <small>@PercentValue(item.UnrealizedPnLPercent)</small></b></span>
                     <span>إجمالي الربح/الخسارة المحققة <b class="@($"{Tone(item.RealizedPnL)} {BalanceClass}")">@MoneyValue(item.RealizedPnL)</b></span>
+                    <span class="market-value-stat">القيمة السوقية <b class="@BalanceClass">@MoneyValue(item.CurrentValue)</b></span>
                 }
             </div>
 
             <div class="inline-form asset-controls">
-                @if (!item.IsClosedPosition && item.Asset.AssetType == AssetType.Gold)
-                {
-                    <label>الكاش باك للجرام <input type="number" step="0.00001" value="@item.Asset.GoldCashbackPerGram" @onchange="e => UpdateGoldCashbackAsync(item.Asset, e.Value?.ToString())" /></label>
-                }
                 @if (!item.IsClosedPosition && item.Asset.IsDailyAccrualFund)
                 {
-                    <label>النسبة السنوية <input type="number" step="0.00001" value="@item.Asset.DailyAccrualAnnualRatePercent" @onchange="e => UpdateTcdRateAsync(item.Asset, e.Value?.ToString())" /></label>
+                    <button class="ghost compact-action asset-action-button" @onclick="() => OpenPriceEditor(item)">تعديل النسبة</button>
                 }
-                @if (!item.IsClosedPosition && !item.Asset.IsDailyAccrualFund)
+                else if (!item.IsClosedPosition)
                 {
                     <button class="ghost compact-action asset-action-button" @onclick="() => OpenPriceEditor(item)">تعديل السعر</button>
                 }
@@ -79,15 +78,31 @@
 {
     <div class="confirm-backdrop" @onclick="CancelPriceEditor">
         <div class="confirm-card price-edit-card" @onclick:stopPropagation>
-            <strong>تحديث السعر</strong>
-            <p>@priceEditorAsset.AssetCode</p>
-            <label>
-                السعر الجديد
-                <input class="field" type="number" step="0.00001" @bind="manualPriceValue" @bind:event="oninput" />
-            </label>
+            <strong>@PriceEditorTitle</strong>
+            @if (priceEditorAsset.IsDailyAccrualFund)
+            {
+                <label>
+                    النسبة السنوية
+                    <input class="field" type="number" step="0.00001" @bind="manualAnnualRateValue" @bind:event="oninput" />
+                </label>
+            }
+            else
+            {
+                <label>
+                    السعر الجديد
+                    <input class="field" type="number" step="0.00001" @bind="manualPriceValue" @bind:event="oninput" />
+                </label>
+                @if (priceEditorAsset.AssetType == AssetType.Gold)
+                {
+                    <label>
+                        الكاش باك للجرام
+                        <input class="field" type="number" step="0.00001" @bind="manualGoldCashbackValue" @bind:event="oninput" />
+                    </label>
+                }
+            }
             <div class="confirm-actions">
                 <button class="ghost" @onclick="CancelPriceEditor">إلغاء</button>
-                <button class="primary" @onclick="SetManualPriceAsync">حفظ السعر</button>
+                <button class="primary" @onclick="SaveAssetEditorAsync">حفظ</button>
             </div>
         </div>
     </div>
@@ -113,6 +128,8 @@
     private int? pendingDeleteAssetId;
     private Asset? priceEditorAsset;
     private decimal? manualPriceValue;
+    private decimal? manualGoldCashbackValue;
+    private decimal? manualAnnualRateValue;
 
     protected override async Task OnInitializedAsync()
     {
@@ -137,24 +154,55 @@
     {
         priceEditorAsset = item.Asset;
         manualPriceValue = item.CurrentPrice;
+        manualGoldCashbackValue = item.Asset.GoldCashbackPerGram;
+        manualAnnualRateValue = item.Asset.DailyAccrualAnnualRatePercent;
     }
 
     private void CancelPriceEditor()
     {
         priceEditorAsset = null;
         manualPriceValue = null;
+        manualGoldCashbackValue = null;
+        manualAnnualRateValue = null;
     }
 
-    private async Task SetManualPriceAsync()
+    private async Task SaveAssetEditorAsync()
     {
-        if (priceEditorAsset != null && manualPriceValue.HasValue && manualPriceValue.Value >= 0)
+        if (priceEditorAsset == null)
         {
-            await Database.SavePriceAsync(new AssetPrice { AssetId = priceEditorAsset.AssetId, PriceDate = DateTime.Today, PriceValue = manualPriceValue.Value, Source = PriceSource.Manual });
-            priceEditorAsset = null;
-            manualPriceValue = null;
-            await ReloadAsync();
-            await ShowMessageAsync("تم تحديث السعر.");
+            return;
         }
+
+        if (priceEditorAsset.IsDailyAccrualFund)
+        {
+            if (!manualAnnualRateValue.HasValue || manualAnnualRateValue.Value <= 0)
+            {
+                return;
+            }
+
+            priceEditorAsset.DailyAccrualAnnualRatePercent = manualAnnualRateValue.Value;
+            await Database.SaveAssetAsync(priceEditorAsset);
+            CancelPriceEditor();
+            await ReloadAsync();
+            await ShowMessageAsync("تم تحديث النسبة.");
+            return;
+        }
+
+        if (!manualPriceValue.HasValue || manualPriceValue.Value < 0)
+        {
+            return;
+        }
+
+        await Database.SavePriceAsync(new AssetPrice { AssetId = priceEditorAsset.AssetId, PriceDate = DateTime.Today, PriceValue = manualPriceValue.Value, Source = PriceSource.Manual });
+        if (priceEditorAsset.AssetType == AssetType.Gold && manualGoldCashbackValue.HasValue && manualGoldCashbackValue.Value >= 0)
+        {
+            priceEditorAsset.GoldCashbackPerGram = manualGoldCashbackValue.Value;
+            await Database.SaveAssetAsync(priceEditorAsset);
+        }
+
+        CancelPriceEditor();
+        await ReloadAsync();
+        await ShowMessageAsync("تم تحديث السعر.");
     }
 
     private async Task SyncAssetPriceAsync(Asset asset)
@@ -175,26 +223,6 @@
         });
         await ReloadAsync();
         await ShowMessageAsync($"تم تحديث سعر {asset.AssetCode}.");
-    }
-
-    private async Task UpdateGoldCashbackAsync(Asset asset, string? value)
-    {
-        if (decimal.TryParse(value, out var cashback) && cashback >= 0)
-        {
-            asset.GoldCashbackPerGram = cashback;
-            await Database.SaveAssetAsync(asset);
-            await ReloadAsync();
-        }
-    }
-
-    private async Task UpdateTcdRateAsync(Asset asset, string? value)
-    {
-        if (decimal.TryParse(value, out var rate) && rate > 0)
-        {
-            asset.DailyAccrualAnnualRatePercent = rate;
-            await Database.SaveAssetAsync(asset);
-            await ReloadAsync();
-        }
     }
 
     private void RequestDeleteAsset(int id)
@@ -223,6 +251,9 @@
 
     private string Money(decimal value) => Balance.HideBalances ? "••••••" : $"{value.ToString("N2")} ج.م";
     private string BalanceClass => Balance.HideBalances ? "balance-value is-hidden" : "balance-value";
+    private string PriceEditorTitle => priceEditorAsset?.IsDailyAccrualFund == true
+        ? $"تعديل النسبة - {priceEditorAsset.AssetName}"
+        : $"تحديث سعر - {priceEditorAsset?.AssetName}";
     private string MoneyValue(decimal value) => $"{value.ToString("N2")} \u062c.\u0645";
     private string PercentValue(decimal value) => $"{value.ToString("N2")}%";
     private static string Tone(decimal value) => value > 0 ? "positive" : value < 0 ? "negative" : string.Empty;

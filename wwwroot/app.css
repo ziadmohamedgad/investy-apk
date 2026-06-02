@@ -835,19 +835,33 @@ small,
     background: color-mix(in srgb, var(--surface-2) 62%, transparent);
     font-size: .72rem;
     align-content: space-between;
+    justify-items: end;
+    direction: rtl;
     text-align: right;
 }
 
 .asset-tile .stat-grid b {
+    display: block;
     justify-self: end;
     align-self: end;
+    margin-top: auto;
     text-align: right;
     font-size: .82rem;
 }
 
-.asset-tile .stat-grid > span:last-child:nth-child(odd) {
+.asset-tile .stat-grid .market-value-stat {
     grid-column: 1 / -1;
     min-height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.asset-tile .stat-grid .market-value-stat b {
+    flex: 0 0 auto;
+    margin-top: 0;
+    text-align: left;
 }
 
 .asset-tile .closed-position-grid {
