@@ -872,6 +872,20 @@ small,
     min-height: 54px;
 }
 
+.asset-tile .closed-position-grid .closed-pnl-stat {
+    min-height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.asset-tile .closed-position-grid .closed-pnl-stat b {
+    flex: 0 0 auto;
+    margin-top: 0;
+    text-align: left;
+}
+
 .inline-form,
 .mobile-form {
     display: grid;
