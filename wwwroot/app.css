@@ -824,6 +824,14 @@ small,
     font-size: .82rem;
 }
 
+.asset-tile .closed-position-grid {
+    grid-template-columns: 1fr;
+}
+
+.asset-tile .closed-position-grid span {
+    min-height: 54px;
+}
+
 .inline-form,
 .mobile-form {
     display: grid;
@@ -1012,6 +1020,22 @@ select:disabled {
     display: grid;
     gap: 12px;
     padding: 14px;
+}
+
+.transaction-type-buy {
+    color: #16a34a;
+}
+
+.transaction-type-sell {
+    color: #dc2626;
+}
+
+.app-shell.dark .transaction-type-buy {
+    color: #22c55e;
+}
+
+.app-shell.dark .transaction-type-sell {
+    color: #f87171;
 }
 
 .transaction-card .transaction-numbers {

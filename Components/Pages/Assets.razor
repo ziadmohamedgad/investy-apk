@@ -32,33 +32,40 @@
                 </div>
             </div>
 
-            <div class="stat-grid">
-                <span>الكمية <b class="@BalanceClass">@item.TotalUnitsHeld.ToString("N2")</b></span>
-                @if (!item.Asset.IsDailyAccrualFund)
+            <div class="stat-grid @(item.IsClosedPosition ? "closed-position-grid" : "")">
+                @if (item.IsClosedPosition)
                 {
-                    <span>متوسط الشراء <b class="@BalanceClass">@item.AverageBuyPrice.ToString("N2")</b></span>
+                    <span>إجمالي الربح/الخسارة <b class="@($"{Tone(item.RealizedPnL)} {BalanceClass}")">@MoneyValue(item.RealizedPnL)</b></span>
                 }
-                <span>السعر الحالي <b class="@BalanceClass">@item.CurrentPrice.ToString("N2")</b></span>
-                <span>إجمالي المدفوع بالرسوم <b class="@BalanceClass">@MoneyValue(item.TotalPaidIncludingFees)</b></span>
-                <span>القيمة السوقية <b class="@BalanceClass">@MoneyValue(item.CurrentValue)</b></span>
-                <span>إجمالي الربح/الخسارة غير المحققة <b class="@($"{Tone(item.UnrealizedPnL)} {BalanceClass}")">@MoneyValue(item.UnrealizedPnL) <small>@PercentValue(item.UnrealizedPnLPercent)</small></b></span>
-                <span>إجمالي الربح/الخسارة المحققة <b class="@($"{Tone(item.RealizedPnL)} {BalanceClass}")">@MoneyValue(item.RealizedPnL)</b></span>
+                else
+                {
+                    <span>الكمية <b class="@BalanceClass">@item.TotalUnitsHeld.ToString("N2")</b></span>
+                    @if (!item.Asset.IsDailyAccrualFund)
+                    {
+                        <span>متوسط الشراء <b class="@BalanceClass">@item.AverageBuyPrice.ToString("N2")</b></span>
+                    }
+                    <span>السعر الحالي <b class="@BalanceClass">@item.CurrentPrice.ToString("N2")</b></span>
+                    <span>إجمالي المدفوع بالرسوم <b class="@BalanceClass">@MoneyValue(item.TotalPaidIncludingFees)</b></span>
+                    <span>القيمة السوقية <b class="@BalanceClass">@MoneyValue(item.CurrentValue)</b></span>
+                    <span>إجمالي الربح/الخسارة غير المحققة <b class="@($"{Tone(item.UnrealizedPnL)} {BalanceClass}")">@MoneyValue(item.UnrealizedPnL) <small>@PercentValue(item.UnrealizedPnLPercent)</small></b></span>
+                    <span>إجمالي الربح/الخسارة المحققة <b class="@($"{Tone(item.RealizedPnL)} {BalanceClass}")">@MoneyValue(item.RealizedPnL)</b></span>
+                }
             </div>
 
             <div class="inline-form asset-controls">
-                @if (item.Asset.AssetType == AssetType.Gold)
+                @if (!item.IsClosedPosition && item.Asset.AssetType == AssetType.Gold)
                 {
                     <label>الكاش باك للجرام <input type="number" step="0.00001" value="@item.Asset.GoldCashbackPerGram" @onchange="e => UpdateGoldCashbackAsync(item.Asset, e.Value?.ToString())" /></label>
                 }
-                @if (item.Asset.IsDailyAccrualFund)
+                @if (!item.IsClosedPosition && item.Asset.IsDailyAccrualFund)
                 {
                     <label>النسبة السنوية <input type="number" step="0.00001" value="@item.Asset.DailyAccrualAnnualRatePercent" @onchange="e => UpdateTcdRateAsync(item.Asset, e.Value?.ToString())" /></label>
                 }
-                @if (!item.Asset.IsDailyAccrualFund)
+                @if (!item.IsClosedPosition && !item.Asset.IsDailyAccrualFund)
                 {
                     <button class="ghost compact-action asset-action-button" @onclick="() => OpenPriceEditor(item)">تعديل السعر</button>
                 }
-                @if (item.Asset.AssetType == AssetType.Stock && !string.IsNullOrWhiteSpace(item.Asset.ExternalTicker))
+                @if (!item.IsClosedPosition && item.Asset.AssetType == AssetType.Stock && !string.IsNullOrWhiteSpace(item.Asset.ExternalTicker))
                 {
                     <button class="ghost compact-action asset-action-button" title="مزامنة السعر" @onclick="() => SyncAssetPriceAsync(item.Asset)">مزامنة السعر</button>
                 }

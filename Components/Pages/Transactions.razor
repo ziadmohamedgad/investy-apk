@@ -169,7 +169,7 @@
             <article class="transaction-card">
                 <div>
                     <span class="code @CodeClass(asset)">@asset?.AssetCode</span>
-                    <strong>@TransactionTypeLabel(transaction, asset)</strong>
+                    <strong class="@TransactionTypeClass(transaction)">@TransactionTypeLabel(transaction, asset)</strong>
                     <small>@transaction.TransactionDate.ToString("yyyy/MM/dd")</small>
                 </div>
                 <div class="transaction-numbers">
@@ -846,6 +846,9 @@
             ? isTcd ? "إيداع" : "شراء"
             : isTcd ? "سحب" : "بيع";
     }
+
+    private static string TransactionTypeClass(InvestmentTransaction transaction) =>
+        transaction.TransactionType == TransactionKind.Buy ? "transaction-type-buy" : "transaction-type-sell";
 
     private static string ToAscii(string value) => new(value.Where(c => c <= 127).ToArray());
     private static string ToAssetCode(string value) => new(value

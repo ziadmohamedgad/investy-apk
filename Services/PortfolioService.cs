@@ -20,7 +20,7 @@ public class PortfolioService
         foreach (var asset in assets)
         {
             var transactions = await _database.GetTransactionsByAssetAsync(asset.AssetId);
-            if (transactions.Count == 0)
+            if (transactions.Count == 0 && Math.Abs(asset.ClosedRealizedPnL) <= 0.005m)
             {
                 continue;
             }
@@ -167,8 +167,8 @@ public class PortfolioService
             if (quantity > unitsHeld + QuantityTolerance)
             {
                 throw new InvalidOperationException(asset.IsDailyAccrualFund
-                    ? "لا يمكن إجراء هذه العملية لأن إجمالي السحب سيصبح أكبر من إجمالي الإيداع المتاح لهذا الأصل عند تاريخ العملية."
-                    : "لا يمكن إجراء هذه العملية لأن إجمالي الكمية المباعة سيصبح أكبر من إجمالي الكمية المشتراة المتاحة لهذا الأصل عند تاريخ العملية.");
+                    ? "لا يمكن إتمام هذه العملية لأن مبلغ السحب يتجاوز المبلغ المتاح من هذا الأصل."
+                    : "لا يمكن إتمام هذه العملية لأن الكمية المباعة تتجاوز الكمية المتاحة من هذا الأصل.");
             }
 
             unitsHeld -= quantity;
@@ -179,7 +179,7 @@ public class PortfolioService
     {
         decimal unitsHeld = 0;
         decimal avgCost = 0;
-        decimal realizedPnL = 0;
+        decimal realizedPnL = asset.ClosedRealizedPnL;
         decimal realizedCostBasis = 0;
         decimal totalFeesPaid = 0;
 
@@ -211,6 +211,7 @@ public class PortfolioService
         unitsHeld = Math.Abs(unitsHeld) <= QuantityTolerance ? 0m : unitsHeld;
         var costBasis = avgCost * unitsHeld;
         var remainingAverageCost = unitsHeld > QuantityTolerance ? avgCost : 0m;
+        var isClosedPosition = transactions.Count == 0 && Math.Abs(asset.ClosedRealizedPnL) > 0.005m;
         var currentValue = asset.AssetType == AssetType.Gold
             ? unitsHeld * (currentPrice + asset.GoldCashbackPerGram)
             : unitsHeld * currentPrice;
@@ -218,6 +219,7 @@ public class PortfolioService
 
         return new AssetSummary(
             asset,
+            isClosedPosition,
             Math.Round(unitsHeld, 5),
             Math.Round(remainingAverageCost, 5),
             Math.Round(costBasis, 2),
@@ -237,7 +239,7 @@ public class PortfolioService
     {
         decimal unitsHeld = 0;
         decimal avgCost = 0;
-        decimal realizedPnL = 0;
+        decimal realizedPnL = asset.ClosedRealizedPnL;
         decimal realizedCostBasis = 0;
         decimal totalFeesPaid = 0;
         var accrualStartDate = GetDailyAccrualStartDate(asset, transactions);
@@ -275,11 +277,13 @@ public class PortfolioService
         var currentPrice = GetDailyAccrualUnitPrice(asset, DateTime.UtcNow, accrualStartDate);
         var costBasis = avgCost * unitsHeld;
         var remainingAverageCost = unitsHeld > QuantityTolerance ? avgCost : 0m;
+        var isClosedPosition = transactions.Count == 0 && Math.Abs(asset.ClosedRealizedPnL) > 0.005m;
         var currentValue = unitsHeld * currentPrice;
         var unrealizedPnL = currentValue - costBasis;
 
         return new AssetSummary(
             asset,
+            isClosedPosition,
             Math.Round(unitsHeld, 5),
             Math.Round(remainingAverageCost, 5),
             Math.Round(costBasis, 2),

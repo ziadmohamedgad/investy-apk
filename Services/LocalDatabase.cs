@@ -19,7 +19,17 @@ public class LocalDatabase
         await _database.CreateTableAsync<Asset>();
         await _database.CreateTableAsync<InvestmentTransaction>();
         await _database.CreateTableAsync<AssetPrice>();
+        await EnsureAssetSchemaAsync(_database);
         return _database;
+    }
+
+    private static async Task EnsureAssetSchemaAsync(SQLiteAsyncConnection db)
+    {
+        var columns = await db.QueryAsync<TableColumn>("PRAGMA table_info(Asset)");
+        if (!columns.Any(c => string.Equals(c.Name, nameof(Asset.ClosedRealizedPnL), StringComparison.OrdinalIgnoreCase)))
+        {
+            await db.ExecuteAsync($"ALTER TABLE Asset ADD COLUMN {nameof(Asset.ClosedRealizedPnL)} TEXT NOT NULL DEFAULT '0'");
+        }
     }
 
     public async Task<List<Asset>> GetAssetsAsync()
@@ -155,7 +165,29 @@ public class LocalDatabase
         var remaining = await db.Table<InvestmentTransaction>().Where(t => t.AssetId == transaction.AssetId).CountAsync();
         if (remaining == 0)
         {
-            await DeleteAssetAsync(transaction.AssetId);
+            var asset = await db.Table<Asset>().FirstOrDefaultAsync(a => a.AssetId == transaction.AssetId);
+            var transactionsBeforeDelete = await db.Table<InvestmentTransaction>()
+                .Where(t => t.AssetId == transaction.AssetId)
+                .OrderBy(t => t.TransactionDate)
+                .ThenBy(t => t.TransactionId)
+                .ToListAsync();
+
+            transactionsBeforeDelete.Add(transaction);
+            var latestPrice = await GetLatestPriceAsync(transaction.AssetId);
+            var closingSummary = asset == null
+                ? null
+                : PortfolioService.CalculateAssetSummary(asset, transactionsBeforeDelete, latestPrice?.PriceValue ?? 0m);
+            var realizedPnL = closingSummary?.RealizedPnL ?? 0m;
+
+            if (Math.Abs(realizedPnL) <= 0.005m)
+            {
+                await DeleteAssetAsync(transaction.AssetId);
+            }
+            else if (asset != null)
+            {
+                asset.ClosedRealizedPnL = realizedPnL;
+                await db.UpdateAsync(asset);
+            }
         }
     }
 
@@ -223,4 +255,10 @@ public class LocalDatabase
     private static string ToAssetCode(string value) => new(value
         .Where(c => c is >= 'A' and <= 'Z' or >= 'a' and <= 'z')
         .ToArray());
+
+    private sealed class TableColumn
+    {
+        [Column("name")]
+        public string Name { get; set; } = string.Empty;
+    }
 }
