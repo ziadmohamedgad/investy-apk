@@ -394,7 +394,7 @@ small,
 .summary-card span,
 .section-title span,
 .settings-list span,
-.stat-grid span,
+.stat-grid > span,
 .transaction-numbers span {
     color: var(--muted);
 }
@@ -771,7 +771,7 @@ small,
 
 .quota-grid span,
 .settings-list span,
-.stat-grid span,
+.stat-grid > span,
 .transaction-numbers span {
     display: grid;
     gap: 3px;
@@ -840,6 +840,15 @@ small,
     text-align: right;
 }
 
+.asset-tile .stat-grid > span em {
+    width: 100%;
+    justify-self: stretch;
+    color: var(--muted);
+    font-style: normal;
+    text-align: right;
+    direction: rtl;
+}
+
 .asset-tile .stat-grid > span b {
     display: block;
     width: 100%;
@@ -858,6 +867,10 @@ small,
     align-items: center;
     justify-content: space-between;
     gap: 12px;
+}
+
+.asset-tile .stat-grid > .market-value-stat em {
+    width: auto;
 }
 
 .asset-tile .stat-grid > .market-value-stat b {
