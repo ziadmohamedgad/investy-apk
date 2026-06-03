@@ -334,7 +334,7 @@
     }
     private string SubmitLabel => transactionType == "Buy"
         ? IsTcd ? "إيداع" : "شراء"
-        : transactionType == "Dividend" ? "أرباح"
+        : transactionType == "Dividend" ? "حفظ"
         : IsTcd ? "سحب" : "بيع";
     private Asset? CurrentFormAsset
     {

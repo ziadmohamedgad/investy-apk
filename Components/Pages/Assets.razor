@@ -9,9 +9,10 @@
 <PageTitle>حالة الأصول</PageTitle>
 
 <section class="page-head">
-    <div>
+    <div class="page-heading-line">
         <h1>حالة الأصول</h1>
         <p>متوسط الشراء والقيمة السوقية والربح حسب كل أصل</p>
+        <span class="page-meta asset-count-label">عدد الأصول: @holdings.Count</span>
     </div>
 </section>
 
@@ -19,8 +20,6 @@
 {
     <div class="notice">@message</div>
 }
-
-<div class="page-meta asset-count-label">عدد الأصول: @holdings.Count</div>
 
 <section class="asset-stack">
     @foreach (var item in holdings)

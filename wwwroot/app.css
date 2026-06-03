@@ -374,6 +374,18 @@ button {
     min-width: 0;
 }
 
+.page-head .page-heading-line {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+    column-gap: 10px;
+}
+
+.page-head .page-heading-line h1,
+.page-head .page-heading-line p {
+    grid-column: 1;
+}
+
 h1, h2, p {
     margin: 0;
 }
@@ -767,8 +779,11 @@ small,
 }
 
 .asset-count-label {
+    grid-column: 2;
+    grid-row: 2;
+    align-self: center;
     width: max-content;
-    margin: -4px 0 12px auto;
+    margin: 0;
     padding: 6px 10px;
     border: 1px solid var(--border);
     border-radius: 999px;
