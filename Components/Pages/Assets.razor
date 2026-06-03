@@ -27,7 +27,7 @@
             <div class="asset-main">
                 <span class="code @CodeClass(item.Asset)">@item.Asset.AssetCode</span>
                 <div class="asset-meta">
-                    <strong>@item.Asset.AssetName</strong>
+                    <strong>@DisplayAssetName(item.Asset.AssetName)</strong>
                     <small>@AssetTypeLabel(item.Asset)</small>
                 </div>
             </div>
@@ -261,7 +261,20 @@
     private string PercentValue(decimal value) => $"{value.ToString("N2")}%";
     private static string Tone(decimal value) => value > 0 ? "positive" : value < 0 ? "negative" : string.Empty;
     private static string CodeClass(Asset asset) => asset.AssetType == AssetType.Gold ? "gold" : asset.AssetType != AssetType.Stock ? "blue" : string.Empty;
-    private static string AssetTypeLabel(Asset asset) => asset.IsDailyAccrualFund ? "صندوق ثاندر كلاود لحظي" : asset.AssetType.ToString();
+    private static string AssetTypeLabel(Asset asset) => asset.IsDailyAccrualFund ? "Cloud" : asset.AssetType.ToString();
+
+    private static string DisplayAssetName(string name)
+    {
+        const int maxLength = 30;
+        var cleanName = (name ?? string.Empty).Trim();
+        if (cleanName.Length <= maxLength)
+        {
+            return cleanName;
+        }
+
+        var cutIndex = cleanName.LastIndexOf(' ', maxLength);
+        return (cutIndex > 0 ? cleanName[..cutIndex] : cleanName[..maxLength]).Trim();
+    }
 
     private async Task ShowMessageAsync(string text)
     {

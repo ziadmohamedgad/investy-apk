@@ -239,12 +239,12 @@
     private static string CodeClass(Asset asset) => asset.AssetType == AssetType.Gold ? "gold" : asset.AssetType != AssetType.Stock ? "blue" : string.Empty;
     private static string AssetTypeToggleLabel(string type) => type switch
     {
-        "Stock" => "إلغاء الأسهم",
-        "Gold" => "إلغاء الذهب",
-        "Fund" => "إلغاء الصناديق",
-        "TCD" => "إلغاء ثاندر كلاود",
-        "Other" => "إلغاء الأصول الأخرى",
-        _ => $"إلغاء {type}"
+        "Stock" => "الأسهم",
+        "Gold" => "الذهب",
+        "Fund" => "الصناديق",
+        "TCD" => "الكلاود",
+        "Other" => "الأخرى",
+        _ => type
     };
 
     private static int AssetTypeOrder(string type) => type switch
