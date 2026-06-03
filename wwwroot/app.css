@@ -864,9 +864,11 @@ small,
     display: inline-flex;
     align-items: baseline;
     justify-content: flex-start;
+    flex-direction: row-reverse;
     gap: 4px;
     direction: ltr;
     unicode-bidi: isolate;
+    white-space: nowrap;
 }
 
 .money-number {

@@ -137,7 +137,7 @@
             }
             <div class="transaction-total @(SellExceedsAvailable || SellNetInvalid || SellExceedsMarketValue ? "is-danger" : "")">
                 <span>الإجمالي</span>
-                <strong class="@BalanceClass">@CurrencyValue(TransactionNetAmount)</strong>
+                <strong class="@BalanceClass">@MoneyValue(TransactionNetAmount)</strong>
                 @if (SellNetInvalid)
                 {
                     <small>@NetSellWarningText</small>
@@ -176,8 +176,8 @@
                 </div>
                 <div class="transaction-numbers">
                     <span>الكمية <b class="@BalanceClass">@transaction.Quantity.ToString("N2")</b></span>
-                    <span>السعر <b class="@BalanceClass">@CurrencyValue(transaction.PricePerUnit)</b></span>
-                    <span>الصافي <b class="@BalanceClass">@CurrencyValue(transaction.NetAmount)</b></span>
+                    <span>السعر <b class="@BalanceClass">@MoneyValue(transaction.PricePerUnit)</b></span>
+                    <span>الصافي <b class="@BalanceClass">@MoneyValue(transaction.NetAmount)</b></span>
                 </div>
                 <div class="row-actions">
                     <button class="ghost" @onclick="() => EditTransactionAsync(transaction.TransactionId)">تعديل</button>
@@ -838,7 +838,7 @@
 
     private string Money(decimal value) => Balance.HideBalances ? "••••••" : $"{value.ToString("N2")} ج.م";
     private string BalanceClass => Balance.HideBalances ? "balance-value is-hidden" : "balance-value";
-    private MarkupString CurrencyValue(decimal value) => (MarkupString)$"<span class=\"money-value\"><span class=\"money-number\">{value:N2}</span><span class=\"currency-mark\">ج.م</span></span>";
+    private string MoneyValue(decimal value) => $"{value.ToString("N2")} \u062c.\u0645";
     private AssetType ManualSearchAssetType => manualType == "Gold" ? AssetType.Gold : manualType is "Fund" or "TCD" ? AssetType.Fund : AssetType.Other;
     private static string CodeClass(Asset? asset) => asset?.AssetType == AssetType.Gold ? "gold" : asset?.AssetType != AssetType.Stock ? "blue" : string.Empty;
     private static string TransactionTypeLabel(InvestmentTransaction transaction, Asset? asset)
