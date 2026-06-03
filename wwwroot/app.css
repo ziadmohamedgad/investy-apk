@@ -483,7 +483,7 @@ small,
 }
 
 .danger {
-    background: color-mix(in srgb, var(--danger) 14%, transparent);
+    background: color-mix(in srgb, var(--danger) 10%, var(--surface-2));
     color: var(--danger);
 }
 
@@ -756,9 +756,26 @@ small,
     color: #0369a1;
 }
 
+.code.fund {
+    background: #f0e7ff;
+    color: #7c3aed;
+}
+
 .code.cloud {
     background: #d8fbf3;
     color: #0f766e;
+}
+
+.asset-count-label {
+    width: max-content;
+    margin: -4px 0 12px auto;
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--surface) 82%, transparent);
+    color: var(--muted);
+    font-size: .78rem;
+    font-weight: 900;
 }
 
 .quota-grid,
@@ -1160,6 +1177,10 @@ select:disabled {
     color: #dc2626;
 }
 
+.transaction-type-dividend {
+    color: #7c3aed;
+}
+
 .app-shell.dark .transaction-type-buy {
     color: #22c55e;
 }
@@ -1168,8 +1189,20 @@ select:disabled {
     color: #f87171;
 }
 
+.app-shell.dark .transaction-type-dividend {
+    color: #c4b5fd;
+}
+
 .transaction-card .transaction-numbers {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.transaction-card.is-dividend .transaction-numbers {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+.transaction-net-only {
+    min-height: 48px;
 }
 
 .row-actions {

@@ -78,10 +78,15 @@ public class PortfolioService
     {
         if (quantityOrAmount <= 0)
         {
-            throw new InvalidOperationException("الكمية يجب أن تكون أكبر من صفر.");
+            throw new InvalidOperationException(kind == TransactionKind.Dividend ? "الربح يجب أن يكون أكبر من صفر." : "الوحدات يجب أن تكون أكبر من صفر.");
         }
 
         EnsureNotFutureDate(transactionDate);
+
+        if (kind == TransactionKind.Dividend && asset.AssetType != AssetType.Stock)
+        {
+            throw new InvalidOperationException("أرباح الأسهم متاحة للأصول من نوع سهم فقط.");
+        }
 
         if (!asset.IsDailyAccrualFund && pricePerUnit < 0)
         {
@@ -164,6 +169,16 @@ public class PortfolioService
                 continue;
             }
 
+            if (transaction.TransactionType == TransactionKind.Dividend)
+            {
+                if (!hasBuy)
+                {
+                    throw new InvalidOperationException("لا يمكن تسجيل أرباح قبل وجود عملية شراء سابقة للسهم.");
+                }
+
+                continue;
+            }
+
             if (!hasBuy)
             {
                 throw new InvalidOperationException(asset.IsDailyAccrualFund
@@ -175,7 +190,7 @@ public class PortfolioService
             {
                 throw new InvalidOperationException(asset.IsDailyAccrualFund
                     ? "لا يمكن إتمام هذه العملية لأن مبلغ السحب يتجاوز المبلغ المتاح من هذا الأصل."
-                    : "لا يمكن إتمام هذه العملية لأن الكمية المباعة تتجاوز الكمية المتاحة من هذا الأصل.");
+                    : "لا يمكن إتمام هذه العملية لأن الوحدات المباعة تتجاوز الوحدات المتاحة من هذا الأصل.");
             }
 
             unitsHeld -= quantity;
@@ -204,7 +219,7 @@ public class PortfolioService
                 unitsHeld += transaction.Quantity;
                 avgCost = unitsHeld > 0 ? (previousTotal + newTotal) / unitsHeld : 0;
             }
-            else
+            else if (transaction.TransactionType == TransactionKind.Sell)
             {
                 totalFeesPaid += transaction.Fees;
                 var saleProceeds = transaction.TotalAmount + goldPerGramAmount - transaction.Fees;
@@ -212,6 +227,10 @@ public class PortfolioService
                 realizedCostBasis += soldCostBasis;
                 realizedPnL += saleProceeds - soldCostBasis;
                 unitsHeld -= transaction.Quantity;
+            }
+            else
+            {
+                realizedPnL += transaction.NetAmount;
             }
         }
 
@@ -269,7 +288,7 @@ public class PortfolioService
                 unitsHeld += units;
                 avgCost = unitsHeld > 0 ? (previousTotal + newTotal) / unitsHeld : 0;
             }
-            else
+            else if (transaction.TransactionType == TransactionKind.Sell)
             {
                 totalFeesPaid += transaction.Fees;
                 var saleProceeds = transaction.TotalAmount - transaction.Fees;
@@ -277,6 +296,10 @@ public class PortfolioService
                 realizedCostBasis += soldCostBasis;
                 realizedPnL += saleProceeds - soldCostBasis;
                 unitsHeld -= units;
+            }
+            else
+            {
+                realizedPnL += transaction.NetAmount;
             }
         }
 
@@ -318,6 +341,11 @@ public class PortfolioService
     {
         var goldPerGramAmount = asset.AssetType == AssetType.Gold ? quantity * manufacturingFeePerGram : 0m;
 
+        if (kind == TransactionKind.Dividend)
+        {
+            return (0m, 0m, quantity, quantity);
+        }
+
         if (!asset.IsDailyAccrualFund)
         {
             var totalAmount = quantity * pricePerUnit;
@@ -357,6 +385,11 @@ public class PortfolioService
         foreach (var transaction in transactions)
         {
             var quantity = GetEffectiveQuantity(asset, transaction, accrualStartDate);
+
+            if (transaction.TransactionType == TransactionKind.Dividend)
+            {
+                continue;
+            }
 
             unitsHeld += transaction.TransactionType == TransactionKind.Buy ? quantity : -quantity;
         }

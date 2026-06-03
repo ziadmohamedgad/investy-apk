@@ -236,7 +236,7 @@
     private string MoneyValue(decimal value) => $"{value.ToString("N2")} \u062c.\u0645";
     private string PercentValue(decimal value) => $"{value.ToString("N2")}%";
     private static string Tone(decimal value) => value > 0 ? "positive" : value < 0 ? "negative" : string.Empty;
-    private static string CodeClass(Asset asset) => asset.IsDailyAccrualFund ? "cloud" : asset.AssetType == AssetType.Gold ? "gold" : asset.AssetType != AssetType.Stock ? "blue" : string.Empty;
+    private static string CodeClass(Asset asset) => asset.IsDailyAccrualFund ? "cloud" : asset.AssetType == AssetType.Gold ? "gold" : asset.AssetType == AssetType.Fund ? "fund" : asset.AssetType != AssetType.Stock ? "blue" : string.Empty;
     private static string AssetTypeToggleLabel(string type) => type switch
     {
         "Stock" => "الأسهم",

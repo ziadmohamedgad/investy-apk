@@ -20,6 +20,8 @@
     <div class="notice">@message</div>
 }
 
+<div class="page-meta asset-count-label">عدد الأصول: @holdings.Count</div>
+
 <section class="asset-stack">
     @foreach (var item in holdings)
     {
@@ -46,7 +48,7 @@
                 }
                 else
                 {
-                    <span><em>الكمية</em> <b class="@BalanceClass">@item.TotalUnitsHeld.ToString("N2")</b></span>
+                    <span><em>الوحدات</em> <b class="@BalanceClass">@item.TotalUnitsHeld.ToString("N2")</b></span>
                     <span><em>متوسط الشراء</em> <b class="@BalanceClass">@CurrencyValue(item.AverageBuyPrice)</b></span>
                     <span><em>السعر الحالي</em> <b class="@BalanceClass">@CurrencyValue(item.CurrentPrice)</b></span>
                     <span><em>إجمالي المدفوع بالرسوم</em> <b class="@BalanceClass">@CurrencyValue(item.TotalPaidIncludingFees)</b></span>
@@ -151,7 +153,20 @@
 
     private async Task ReloadAsync()
     {
-        holdings = await Portfolio.GetHoldingsAsync();
+        var latestTransactions = (await Database.GetTransactionsAsync())
+            .GroupBy(t => t.AssetId)
+            .ToDictionary(
+                g => g.Key,
+                g => g.OrderByDescending(t => t.TransactionDate).ThenByDescending(t => t.TransactionId).First());
+
+        holdings = (await Portfolio.GetHoldingsAsync())
+            .OrderByDescending(h => latestTransactions.TryGetValue(h.Asset.AssetId, out var transaction)
+                ? transaction.TransactionDate
+                : h.Asset.CreatedAt)
+            .ThenByDescending(h => latestTransactions.TryGetValue(h.Asset.AssetId, out var transaction)
+                ? transaction.TransactionId
+                : 0)
+            .ToList();
     }
 
     private void OpenPriceEditor(AssetSummary item)
@@ -260,7 +275,7 @@
     private MarkupString CurrencyValue(decimal value) => (MarkupString)$"<span class=\"money-value\"><span class=\"money-number\">{value:N2}</span><span class=\"currency-mark\">ج.م</span></span>";
     private string PercentValue(decimal value) => $"{value.ToString("N2")}%";
     private static string Tone(decimal value) => value > 0 ? "positive" : value < 0 ? "negative" : string.Empty;
-    private static string CodeClass(Asset asset) => asset.IsDailyAccrualFund ? "cloud" : asset.AssetType == AssetType.Gold ? "gold" : asset.AssetType != AssetType.Stock ? "blue" : string.Empty;
+    private static string CodeClass(Asset asset) => asset.IsDailyAccrualFund ? "cloud" : asset.AssetType == AssetType.Gold ? "gold" : asset.AssetType == AssetType.Fund ? "fund" : asset.AssetType != AssetType.Stock ? "blue" : string.Empty;
     private static string AssetTypeLabel(Asset asset) => asset.IsDailyAccrualFund ? "Cloud" : asset.AssetType.ToString();
 
     private static string DisplayAssetName(string name)

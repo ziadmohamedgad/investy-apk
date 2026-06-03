@@ -13,7 +13,8 @@ public enum AssetType
 public enum TransactionKind
 {
     Buy,
-    Sell
+    Sell,
+    Dividend
 }
 
 public enum PriceSource

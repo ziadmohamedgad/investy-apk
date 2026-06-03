@@ -25,84 +25,100 @@ public class ExportService
         workbook.RightToLeft = true;
 
         var dashboardSheet = workbook.Worksheets.Add("لوحة التحكم");
-        dashboardSheet.Cell(1, 1).Value = "البند";
-        dashboardSheet.Cell(1, 2).Value = "القيمة";
-        dashboardSheet.Cell(2, 1).Value = "القيمة السوقية";
-        dashboardSheet.Cell(2, 2).Value = dashboard.TotalCurrentValue;
-        dashboardSheet.Cell(3, 1).Value = "رأس المال المستثمر";
-        dashboardSheet.Cell(3, 2).Value = dashboard.TotalInvestedCapital;
-        dashboardSheet.Cell(4, 1).Value = "الربح غير المحقق";
-        dashboardSheet.Cell(4, 2).Value = dashboard.TotalUnrealizedPnL;
-        dashboardSheet.Cell(5, 1).Value = "نسبة الربح غير المحقق";
-        dashboardSheet.Cell(5, 2).Value = dashboard.TotalUnrealizedPnLPercent / 100m;
-        dashboardSheet.Cell(5, 2).Style.NumberFormat.Format = "0.00%";
-        dashboardSheet.Cell(6, 1).Value = "الربح المحقق";
-        dashboardSheet.Cell(6, 2).Value = dashboard.TotalRealizedPnL;
-        dashboardSheet.Cell(7, 1).Value = "إجمالي الرسوم";
-        dashboardSheet.Cell(7, 2).Value = dashboard.TotalFeesPaid;
-        dashboardSheet.Cell(8, 1).Value = "العائد الكلي";
-        dashboardSheet.Cell(8, 2).Value = dashboard.PortfolioReturnSinceInception / 100m;
-        dashboardSheet.Cell(8, 2).Style.NumberFormat.Format = "0.00%";
-        dashboardSheet.Cell(9, 1).Value = "عدد الأصول";
-        dashboardSheet.Cell(9, 2).Value = dashboard.AssetCount;
-        dashboardSheet.Cell(10, 1).Value = "عدد العمليات";
-        dashboardSheet.Cell(10, 2).Value = dashboard.TransactionCount;
+        WriteTitle(dashboardSheet, "ملخص إنڤيستي", 2);
+        WriteHeaders(dashboardSheet, 3, "البند", "القيمة");
+        WriteDashboardRow(dashboardSheet, 4, "إجمالي القيمة", dashboard.TotalCurrentValue, "money");
+        WriteDashboardRow(dashboardSheet, 5, "إجمالي المدفوع", dashboard.TotalInvestedCapital, "money");
+        WriteDashboardRow(dashboardSheet, 6, "الربح/الخسارة غير المحققة", dashboard.TotalUnrealizedPnL, "money");
+        WriteDashboardRow(dashboardSheet, 7, "نسبة الربح/الخسارة غير المحققة", dashboard.TotalUnrealizedPnLPercent / 100m, "percent");
+        WriteDashboardRow(dashboardSheet, 8, "الربح/الخسارة المحققة", dashboard.TotalRealizedPnL, "money");
+        WriteDashboardRow(dashboardSheet, 9, "إجمالي الرسوم", dashboard.TotalFeesPaid, "money");
+        WriteDashboardRow(dashboardSheet, 10, "العائد الكلي", dashboard.PortfolioReturnSinceInception / 100m, "percent");
+        WriteDashboardRow(dashboardSheet, 11, "عدد الأصول", dashboard.AssetCount, "number");
+        WriteDashboardRow(dashboardSheet, 12, "عدد العمليات", dashboard.TransactionCount, "number");
+        StyleDataRange(dashboardSheet, 3, 12, 2);
 
         var assetsSheet = workbook.Worksheets.Add("الأصول");
-        assetsSheet.Cell(1, 1).Value = "الكود";
-        assetsSheet.Cell(1, 2).Value = "الاسم";
-        assetsSheet.Cell(1, 3).Value = "النوع";
-        assetsSheet.Cell(1, 4).Value = "العملة";
-        assetsSheet.Cell(1, 5).Value = "السعر الحالي";
-        assetsSheet.Cell(1, 6).Value = "الكمية";
-        assetsSheet.Cell(1, 7).Value = "القيمة السوقية";
-        assetsSheet.Cell(1, 8).Value = "الربح/الخسارة غير المحققة";
-        assetsSheet.Cell(1, 9).Value = "الربح/الخسارة المحققة";
-        assetsSheet.Cell(1, 10).Value = "نسبة الربح/الخسارة المحققة";
+        WriteTitle(assetsSheet, "حالة الأصول", 13);
+        WriteHeaders(assetsSheet, 3, "الكود", "الاسم", "النوع", "العملة", "السعر الحالي", "الوحدات", "إجمالي المدفوع", "القيمة السوقية", "الربح/الخسارة غير المحققة", "نسبة غير المحقق", "الربح/الخسارة المحققة", "إجمالي الربح/الخسارة", "نسبة إجمالية");
         for (var i = 0; i < holdings.Count; i++)
         {
-            var row = i + 2;
+            var row = i + 4;
             var item = holdings[i];
             assetsSheet.Cell(row, 1).Value = item.Asset.AssetCode;
             assetsSheet.Cell(row, 2).Value = item.Asset.AssetName;
-            assetsSheet.Cell(row, 3).Value = item.Asset.AssetType.ToString();
+            assetsSheet.Cell(row, 3).Value = AssetTypeLabel(item.Asset);
             assetsSheet.Cell(row, 4).Value = item.Asset.Currency;
             assetsSheet.Cell(row, 5).Value = item.CurrentPrice;
             assetsSheet.Cell(row, 6).Value = item.TotalUnitsHeld;
-            assetsSheet.Cell(row, 7).Value = item.CurrentValue;
-            assetsSheet.Cell(row, 8).Value = item.UnrealizedPnL;
-            assetsSheet.Cell(row, 9).Value = item.RealizedPnL;
-            assetsSheet.Cell(row, 10).Value = item.RealizedPnLPercent;
+            assetsSheet.Cell(row, 7).Value = item.TotalPaidIncludingFees;
+            assetsSheet.Cell(row, 8).Value = item.CurrentValue;
+            assetsSheet.Cell(row, 9).Value = item.UnrealizedPnL;
+            assetsSheet.Cell(row, 10).Value = item.UnrealizedPnLPercent / 100m;
+            assetsSheet.Cell(row, 11).Value = item.RealizedPnL;
+            assetsSheet.Cell(row, 12).Value = item.TotalPnL;
+            assetsSheet.Cell(row, 13).Value = item.TotalPnLPercent / 100m;
         }
+        StyleDataRange(assetsSheet, 3, holdings.Count + 3, 13);
+        FormatMoneyColumns(assetsSheet, 5, 5, 7, 8, 9, 11, 12);
+        FormatNumberColumns(assetsSheet, 6);
+        FormatPercentColumns(assetsSheet, 10, 13);
 
         var transactionsSheet = workbook.Worksheets.Add("العمليات");
-        transactionsSheet.Cell(1, 1).Value = "التاريخ";
-        transactionsSheet.Cell(1, 2).Value = "الكود";
-        transactionsSheet.Cell(1, 3).Value = "النوع";
-        transactionsSheet.Cell(1, 4).Value = "الكمية";
-        transactionsSheet.Cell(1, 5).Value = "سعر الوحدة";
-        transactionsSheet.Cell(1, 6).Value = "الرسوم";
-        transactionsSheet.Cell(1, 7).Value = "الإجمالي";
+        WriteTitle(transactionsSheet, "سجل العمليات", 8);
+        WriteHeaders(transactionsSheet, 3, "التاريخ", "الكود", "اسم الأصل", "النوع", "الوحدات", "سعر الوحدة", "الرسوم", "الصافي");
         for (var i = 0; i < transactions.Count; i++)
         {
-            var row = i + 2;
+            var row = i + 4;
             var transaction = transactions[i];
             var asset = assets.FirstOrDefault(a => a.AssetId == transaction.AssetId);
             transactionsSheet.Cell(row, 1).Value = transaction.TransactionDate;
             transactionsSheet.Cell(row, 2).Value = asset?.AssetCode ?? string.Empty;
-            transactionsSheet.Cell(row, 3).Value = transaction.TransactionType == TransactionKind.Buy ? "شراء" : "بيع";
-            transactionsSheet.Cell(row, 4).Value = transaction.Quantity;
-            transactionsSheet.Cell(row, 5).Value = transaction.PricePerUnit;
-            transactionsSheet.Cell(row, 6).Value = transaction.Fees;
-            transactionsSheet.Cell(row, 7).Value = transaction.NetAmount;
+            transactionsSheet.Cell(row, 3).Value = asset?.AssetName ?? string.Empty;
+            transactionsSheet.Cell(row, 4).Value = TransactionTypeLabel(transaction, asset);
+            if (transaction.TransactionType != TransactionKind.Dividend)
+            {
+                transactionsSheet.Cell(row, 5).Value = transaction.Quantity;
+                transactionsSheet.Cell(row, 6).Value = transaction.PricePerUnit;
+                transactionsSheet.Cell(row, 7).Value = transaction.Fees;
+            }
+            transactionsSheet.Cell(row, 8).Value = transaction.NetAmount;
         }
+        StyleDataRange(transactionsSheet, 3, transactions.Count + 3, 8);
+        transactionsSheet.Column(1).Style.DateFormat.Format = "yyyy/mm/dd";
+        FormatNumberColumns(transactionsSheet, 5);
+        FormatMoneyColumns(transactionsSheet, 6, 7, 8);
+
+        var analysisSheet = workbook.Worksheets.Add("تحليل الأنواع");
+        WriteTitle(analysisSheet, "تحليل حسب نوع الأصل", 7);
+        WriteHeaders(analysisSheet, 3, "النوع", "عدد الأصول", "إجمالي المدفوع", "القيمة السوقية", "غير المحقق", "المحقق", "الوزن");
+        var groupedHoldings = holdings
+            .GroupBy(h => AssetTypeLabel(h.Asset))
+            .OrderByDescending(g => g.Sum(h => h.CurrentValue))
+            .ToList();
+        for (var i = 0; i < groupedHoldings.Count; i++)
+        {
+            var row = i + 4;
+            var group = groupedHoldings[i];
+            var currentValue = group.Sum(h => h.CurrentValue);
+            analysisSheet.Cell(row, 1).Value = group.Key;
+            analysisSheet.Cell(row, 2).Value = group.Count();
+            analysisSheet.Cell(row, 3).Value = group.Sum(h => h.TotalPaidIncludingFees);
+            analysisSheet.Cell(row, 4).Value = currentValue;
+            analysisSheet.Cell(row, 5).Value = group.Sum(h => h.UnrealizedPnL);
+            analysisSheet.Cell(row, 6).Value = group.Sum(h => h.RealizedPnL);
+            analysisSheet.Cell(row, 7).Value = dashboard.TotalCurrentValue != 0 ? currentValue / dashboard.TotalCurrentValue : 0;
+        }
+        StyleDataRange(analysisSheet, 3, groupedHoldings.Count + 3, 7);
+        FormatMoneyColumns(analysisSheet, 3, 4, 5, 6);
+        FormatPercentColumns(analysisSheet, 7);
 
         foreach (var sheet in workbook.Worksheets)
         {
-            sheet.Row(1).Style.Font.Bold = true;
-            sheet.Row(1).Style.Fill.BackgroundColor = XLColor.FromHtml("#0f8f6f");
-            sheet.Row(1).Style.Font.FontColor = XLColor.White;
+            sheet.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+            sheet.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
             sheet.Columns().AdjustToContents();
+            sheet.Rows().AdjustToContents();
         }
 
         var fileName = $"Investy-{DateTime.Now:yyyyMMdd-HHmm}.xlsx";
@@ -126,6 +142,116 @@ public class ExportService
             File = new ShareFile(path)
         });
         return path;
+    }
+
+    private static void WriteTitle(IXLWorksheet sheet, string title, int columns)
+    {
+        var range = sheet.Range(1, 1, 1, columns);
+        range.Merge();
+        range.Value = title;
+        range.Style.Font.Bold = true;
+        range.Style.Font.FontSize = 16;
+        range.Style.Font.FontColor = XLColor.White;
+        range.Style.Fill.BackgroundColor = XLColor.FromHtml("#0f172a");
+        range.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+        range.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+        sheet.Row(1).Height = 28;
+    }
+
+    private static void WriteHeaders(IXLWorksheet sheet, int row, params string[] headers)
+    {
+        for (var i = 0; i < headers.Length; i++)
+        {
+            sheet.Cell(row, i + 1).Value = headers[i];
+        }
+    }
+
+    private static void WriteDashboardRow(IXLWorksheet sheet, int row, string label, decimal value, string format)
+    {
+        sheet.Cell(row, 1).Value = label;
+        sheet.Cell(row, 2).Value = value;
+        ApplyCellFormat(sheet.Cell(row, 2), format);
+    }
+
+    private static void WriteDashboardRow(IXLWorksheet sheet, int row, string label, int value, string format)
+    {
+        sheet.Cell(row, 1).Value = label;
+        sheet.Cell(row, 2).Value = value;
+        ApplyCellFormat(sheet.Cell(row, 2), format);
+    }
+
+    private static void StyleDataRange(IXLWorksheet sheet, int headerRow, int lastRow, int lastColumn)
+    {
+        var header = sheet.Range(headerRow, 1, headerRow, lastColumn);
+        header.Style.Font.Bold = true;
+        header.Style.Fill.BackgroundColor = XLColor.FromHtml("#0f8f6f");
+        header.Style.Font.FontColor = XLColor.White;
+        header.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+
+        if (lastRow <= headerRow)
+        {
+            return;
+        }
+
+        var body = sheet.Range(headerRow + 1, 1, lastRow, lastColumn);
+        body.Style.Border.InsideBorder = XLBorderStyleValues.Hair;
+        body.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+        body.Style.Fill.BackgroundColor = XLColor.FromHtml("#f8fbff");
+    }
+
+    private static void FormatMoneyColumns(IXLWorksheet sheet, params int[] columns)
+    {
+        foreach (var column in columns)
+        {
+            sheet.Column(column).Style.NumberFormat.Format = "#,##0.00";
+        }
+    }
+
+    private static void FormatNumberColumns(IXLWorksheet sheet, params int[] columns)
+    {
+        foreach (var column in columns)
+        {
+            sheet.Column(column).Style.NumberFormat.Format = "#,##0.00";
+        }
+    }
+
+    private static void FormatPercentColumns(IXLWorksheet sheet, params int[] columns)
+    {
+        foreach (var column in columns)
+        {
+            sheet.Column(column).Style.NumberFormat.Format = "0.00%";
+        }
+    }
+
+    private static void ApplyCellFormat(IXLCell cell, string format)
+    {
+        cell.Style.NumberFormat.Format = format switch
+        {
+            "money" => "#,##0.00",
+            "percent" => "0.00%",
+            _ => "#,##0"
+        };
+    }
+
+    private static string AssetTypeLabel(Asset asset) => asset.IsDailyAccrualFund
+        ? "Cloud"
+        : asset.AssetType switch
+        {
+            AssetType.Stock => "Stock",
+            AssetType.Gold => "Gold",
+            AssetType.Fund => "Fund",
+            _ => "Other"
+        };
+
+    private static string TransactionTypeLabel(InvestmentTransaction transaction, Asset? asset)
+    {
+        var isTcd = asset?.IsDailyAccrualFund == true;
+        return transaction.TransactionType switch
+        {
+            TransactionKind.Dividend => "أرباح",
+            TransactionKind.Buy => isTcd ? "إيداع" : "شراء",
+            _ => isTcd ? "سحب" : "بيع"
+        };
     }
 
 #if ANDROID
