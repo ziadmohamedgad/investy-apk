@@ -756,6 +756,11 @@ small,
     color: #0369a1;
 }
 
+.code.cloud {
+    background: #d8fbf3;
+    color: #0f766e;
+}
+
 .quota-grid,
 .settings-list,
 .stat-grid,

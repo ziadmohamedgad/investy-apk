@@ -898,7 +898,7 @@
     private string BalanceClass => Balance.HideBalances ? "balance-value is-hidden" : "balance-value";
     private string MoneyValue(decimal value) => $"{value.ToString("N2")} \u062c.\u0645";
     private AssetType ManualSearchAssetType => manualType == "Gold" ? AssetType.Gold : manualType is "Fund" or "TCD" ? AssetType.Fund : AssetType.Other;
-    private static string CodeClass(Asset? asset) => asset?.AssetType == AssetType.Gold ? "gold" : asset?.AssetType != AssetType.Stock ? "blue" : string.Empty;
+    private static string CodeClass(Asset? asset) => asset?.IsDailyAccrualFund == true ? "cloud" : asset?.AssetType == AssetType.Gold ? "gold" : asset?.AssetType != AssetType.Stock ? "blue" : string.Empty;
     private static string TransactionTypeLabel(InvestmentTransaction transaction, Asset? asset)
     {
         var isTcd = asset?.IsDailyAccrualFund == true;

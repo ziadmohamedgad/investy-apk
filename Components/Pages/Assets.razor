@@ -260,7 +260,7 @@
     private MarkupString CurrencyValue(decimal value) => (MarkupString)$"<span class=\"money-value\"><span class=\"money-number\">{value:N2}</span><span class=\"currency-mark\">ج.م</span></span>";
     private string PercentValue(decimal value) => $"{value.ToString("N2")}%";
     private static string Tone(decimal value) => value > 0 ? "positive" : value < 0 ? "negative" : string.Empty;
-    private static string CodeClass(Asset asset) => asset.AssetType == AssetType.Gold ? "gold" : asset.AssetType != AssetType.Stock ? "blue" : string.Empty;
+    private static string CodeClass(Asset asset) => asset.IsDailyAccrualFund ? "cloud" : asset.AssetType == AssetType.Gold ? "gold" : asset.AssetType != AssetType.Stock ? "blue" : string.Empty;
     private static string AssetTypeLabel(Asset asset) => asset.IsDailyAccrualFund ? "Cloud" : asset.AssetType.ToString();
 
     private static string DisplayAssetName(string name)
