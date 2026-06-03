@@ -860,6 +860,25 @@ small,
     font-size: .82rem;
 }
 
+.money-value {
+    display: inline-flex;
+    align-items: baseline;
+    justify-content: flex-start;
+    gap: 4px;
+    direction: ltr;
+    unicode-bidi: isolate;
+}
+
+.money-number {
+    direction: ltr;
+}
+
+.currency-mark {
+    direction: rtl;
+    font-size: .78em;
+    font-weight: 900;
+}
+
 .asset-tile .stat-grid > .market-value-stat {
     grid-column: 1 / -1;
     min-height: 40px;

@@ -35,24 +35,24 @@
             <div class="stat-grid @(item.IsClosedPosition ? "closed-position-grid" : "")">
                 @if (item.IsClosedPosition)
                 {
-                    <span class="closed-pnl-stat"><em>إجمالي الربح/الخسارة المحققة</em> <b class="@($"{Tone(item.RealizedPnL + item.UnrealizedPnL)} {BalanceClass}")">@MoneyValue(item.RealizedPnL + item.UnrealizedPnL)</b></span>
+                    <span class="closed-pnl-stat"><em>إجمالي الربح/الخسارة المحققة</em> <b class="@($"{Tone(item.RealizedPnL + item.UnrealizedPnL)} {BalanceClass}")">@CurrencyValue(item.RealizedPnL + item.UnrealizedPnL)</b></span>
                     <button class="danger compact-action asset-action-button icon-only-asset-action closed-delete-action" title="حذف" aria-label="حذف الأصل" @onclick="() => RequestDeleteAsset(item.Asset.AssetId)"><span aria-hidden="true">🗑</span></button>
                 }
                 else if (item.Asset.IsDailyAccrualFund)
                 {
-                    <span><em>إجمالي الربح/الخسارة غير المحققة</em> <b class="@($"{Tone(item.UnrealizedPnL)} {BalanceClass}")">@MoneyValue(item.UnrealizedPnL) <small>@PercentValue(item.UnrealizedPnLPercent)</small></b></span>
-                    <span><em>إجمالي الربح/الخسارة المحققة</em> <b class="@($"{Tone(item.RealizedPnL)} {BalanceClass}")">@MoneyValue(item.RealizedPnL)</b></span>
-                    <span class="market-value-stat"><em>القيمة السوقية</em> <b class="@BalanceClass">@MoneyValue(item.CurrentValue)</b></span>
+                    <span><em>إجمالي الربح/الخسارة غير المحققة</em> <b class="@($"{Tone(item.UnrealizedPnL)} {BalanceClass}")">@CurrencyValue(item.UnrealizedPnL) <small>@PercentValue(item.UnrealizedPnLPercent)</small></b></span>
+                    <span><em>إجمالي الربح/الخسارة المحققة</em> <b class="@($"{Tone(item.RealizedPnL)} {BalanceClass}")">@CurrencyValue(item.RealizedPnL)</b></span>
+                    <span class="market-value-stat"><em>القيمة السوقية</em> <b class="@BalanceClass">@CurrencyValue(item.CurrentValue)</b></span>
                 }
                 else
                 {
                     <span><em>الكمية</em> <b class="@BalanceClass">@item.TotalUnitsHeld.ToString("N2")</b></span>
-                    <span><em>متوسط الشراء</em> <b class="@BalanceClass">@item.AverageBuyPrice.ToString("N2")</b></span>
-                    <span><em>السعر الحالي</em> <b class="@BalanceClass">@item.CurrentPrice.ToString("N2")</b></span>
-                    <span><em>إجمالي المدفوع بالرسوم</em> <b class="@BalanceClass">@MoneyValue(item.TotalPaidIncludingFees)</b></span>
-                    <span><em>إجمالي الربح/الخسارة غير المحققة</em> <b class="@($"{Tone(item.UnrealizedPnL)} {BalanceClass}")">@MoneyValue(item.UnrealizedPnL) <small>@PercentValue(item.UnrealizedPnLPercent)</small></b></span>
-                    <span><em>إجمالي الربح/الخسارة المحققة</em> <b class="@($"{Tone(item.RealizedPnL)} {BalanceClass}")">@MoneyValue(item.RealizedPnL)</b></span>
-                    <span class="market-value-stat"><em>القيمة السوقية</em> <b class="@BalanceClass">@MoneyValue(item.CurrentValue)</b></span>
+                    <span><em>متوسط الشراء</em> <b class="@BalanceClass">@CurrencyValue(item.AverageBuyPrice)</b></span>
+                    <span><em>السعر الحالي</em> <b class="@BalanceClass">@CurrencyValue(item.CurrentPrice)</b></span>
+                    <span><em>إجمالي المدفوع بالرسوم</em> <b class="@BalanceClass">@CurrencyValue(item.TotalPaidIncludingFees)</b></span>
+                    <span><em>إجمالي الربح/الخسارة غير المحققة</em> <b class="@($"{Tone(item.UnrealizedPnL)} {BalanceClass}")">@CurrencyValue(item.UnrealizedPnL) <small>@PercentValue(item.UnrealizedPnLPercent)</small></b></span>
+                    <span><em>إجمالي الربح/الخسارة المحققة</em> <b class="@($"{Tone(item.RealizedPnL)} {BalanceClass}")">@CurrencyValue(item.RealizedPnL)</b></span>
+                    <span class="market-value-stat"><em>القيمة السوقية</em> <b class="@BalanceClass">@CurrencyValue(item.CurrentValue)</b></span>
                 }
             </div>
 
@@ -257,7 +257,7 @@
     private string PriceEditorTitle => priceEditorAsset?.IsDailyAccrualFund == true
         ? $"تعديل النسبة - {priceEditorAsset.AssetCode}"
         : $"تحديث سعر - {priceEditorAsset?.AssetCode}";
-    private string MoneyValue(decimal value) => value.ToString("N2");
+    private MarkupString CurrencyValue(decimal value) => (MarkupString)$"<span class=\"money-value\"><span class=\"money-number\">{value:N2}</span><span class=\"currency-mark\">ج.م</span></span>";
     private string PercentValue(decimal value) => $"{value.ToString("N2")}%";
     private static string Tone(decimal value) => value > 0 ? "positive" : value < 0 ? "negative" : string.Empty;
     private static string CodeClass(Asset asset) => asset.AssetType == AssetType.Gold ? "gold" : asset.AssetType != AssetType.Stock ? "blue" : string.Empty;
