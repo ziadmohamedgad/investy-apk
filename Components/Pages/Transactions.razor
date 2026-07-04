@@ -1092,8 +1092,6 @@
         : asset?.AssetType == AssetType.Gold ? "ذهب"
         : asset?.AssetType == AssetType.Silver ? "فضة"
         : asset?.AssetType == AssetType.Fund ? "صندوق"
-        : asset?.AssetType == AssetType.Crypto ? "كريبتو"
-        : asset?.AssetType == AssetType.ETF ? "وثيقة"
         : "أخرى";
 
     private static string TransactionTypeLabel(InvestmentTransaction transaction, Asset? asset)
