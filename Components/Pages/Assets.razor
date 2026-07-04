@@ -43,7 +43,7 @@
                 {
                     @* TCD: show only total accrued return (never decreases on withdrawal) *@
                     <span class="market-value-stat"><em>المبلغ</em> <b class="@BalanceClass">@CurrencyValue(item.CurrentValue)</b></span>
-                    <span class="market-value-stat"><em>إجمالي العائد</em> <b class="@($"{Tone(item.TotalAccruedReturn)} {BalanceClass}")">@CurrencyValue(item.TotalAccruedReturn)</b></span>
+                    <span class="market-value-stat"><em>إجمالي العائد المحقق</em> <b class="@($"{Tone(item.TotalAccruedReturn)} {BalanceClass}")">@CurrencyValue(item.TotalAccruedReturn)</b></span>
                 }
                 else
                 {

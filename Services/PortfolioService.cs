@@ -332,9 +332,10 @@ public class PortfolioService
         var currentValue = unitsHeld * currentPrice;
         var unrealizedPnL = currentValue - costBasis;
 
-        // TotalAccruedReturn = total growth regardless of withdrawals
-        // = (current balance + all withdrawn proceeds) - all deposited amounts
-        var totalAccruedReturn = Math.Round((currentValue + totalWithdrawnNet) - totalDepositedNet, 2);
+        // TotalAccruedReturn = total realized + unrealized growth, regardless of withdrawals.
+        // Uses unrealizedPnL + realizedPnL directly to avoid floating-point drift
+        // in the (currentValue + totalWithdrawnNet - totalDepositedNet) formula.
+        var totalAccruedReturn = Math.Round(unrealizedPnL + realizedPnL, 2);
 
         return new AssetSummary(
             asset,
