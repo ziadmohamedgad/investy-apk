@@ -142,11 +142,11 @@
             else if (IsDividend && dividendKind == "Stock")
             {
                 <label>
-                    نسبة الأسهم المجانية لكل سهم ممتلك
+                    عدد الأسهم المجانية لكل سهم ممتلك
                     <input class="field" type="number" step="0.0001" min="0" @bind="freeSharesQuantity" @bind:event="oninput" />
                     @if (FreeSharesInvalid)
                     {
-                        <small class="field-hint is-error">النسبة يجب أن تكون أكبر من صفر.</small>
+                        <small class="field-hint is-error">العدد يجب أن يكون أكبر من صفر.</small>
                     }
                 </label>
             }
@@ -703,7 +703,7 @@
                 {
                     resolvedDividendKind = DividendKind.Stock;
                     
-                    var summary = holdings.FirstOrDefault(h => h.AssetId == asset.AssetId);
+                    var summary = holdings.FirstOrDefault(h => h.Asset.AssetId == asset.AssetId);
                     decimal baseUnits = summary?.TotalUnitsHeld ?? 0m;
                     if (editingTransactionId.HasValue)
                     {
@@ -957,7 +957,7 @@
         quantity = asset.IsDailyAccrualFund ? transaction.TotalAmount : transaction.Quantity;
         dividendAmount = transaction.TransactionType == TransactionKind.Dividend && transaction.DividendKind == DividendKind.Cash ? transaction.NetAmount : null;
         freeSharesQuantity = transaction.TransactionType == TransactionKind.Dividend && transaction.DividendKind == DividendKind.Stock 
-            ? transaction.Quantity / Math.Max(1m, (holdings.FirstOrDefault(h => h.AssetId == transaction.AssetId)?.TotalUnitsHeld ?? 1m) - transaction.Quantity) 
+            ? transaction.Quantity / Math.Max(1m, (holdings.FirstOrDefault(h => h.Asset.AssetId == transaction.AssetId)?.TotalUnitsHeld ?? 1m) - transaction.Quantity) 
             : null;
         freeSharesMarketPrice = null;
         pricePerUnit = transaction.PricePerUnit;
