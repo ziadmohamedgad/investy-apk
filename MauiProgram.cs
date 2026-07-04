@@ -1,6 +1,5 @@
 using Investy.Mobile.Services;
 using Microsoft.Extensions.Logging;
-using Plugin.LocalNotification;
 
 namespace Investy.Mobile;
 
@@ -13,7 +12,6 @@ public static class MauiProgram
         var builder = MauiApp.CreateBuilder();
         builder
             .UseMauiApp<App>()
-            .UseLocalNotification()
             .ConfigureFonts(fonts =>
             {
                 fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");

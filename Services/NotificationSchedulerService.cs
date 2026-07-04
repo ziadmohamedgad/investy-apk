@@ -1,15 +1,21 @@
-using Plugin.LocalNotification;
+#if ANDROID
+using Android.App;
+using Android.Content;
+using Android.OS;
+using Investy.Mobile.Platforms.Android;
+#endif
 
 namespace Investy.Mobile.Services;
 
 /// <summary>
-/// Schedules 5 weekly local notifications — one per workday (Sun–Thu) at 8 PM device time.
-/// Called every time the app opens so alarms are restored after device reboots.
+/// Schedules 5 weekly AlarmManager alarms — one per workday (Sun–Thu) at 8 PM device time.
+/// Uses native Android AlarmManager; no external package required.
+/// Called on every app launch to restore alarms after device reboots.
 /// </summary>
 public class NotificationSchedulerService
 {
-    /// <summary>Notification IDs 201–205, one per workday (Sun=201 … Thu=205).</summary>
-    private static readonly (int Id, DayOfWeek Day)[] WorkdaySchedule =
+    /// <summary>AlarmManager request codes 201–205, one per workday.</summary>
+    private static readonly (int RequestCode, DayOfWeek Day)[] WorkdaySchedule =
     [
         (201, DayOfWeek.Sunday),
         (202, DayOfWeek.Monday),
@@ -18,67 +24,86 @@ public class NotificationSchedulerService
         (205, DayOfWeek.Thursday),
     ];
 
-    /// <summary>
-    /// Cancels any previously scheduled workday notifications and reschedules them.
-    /// Safe to call on every app launch; Android OS clears AlarmManager on reboot so
-    /// rescheduling ensures the alarms are always active.
-    /// </summary>
-    public async Task ScheduleWorkdayNotificationsAsync()
+    /// <summary>7 days in milliseconds — repeat interval for each alarm.</summary>
+    private const long WeeklyIntervalMs = 7L * 24 * 60 * 60 * 1000;
+
+    public Task ScheduleWorkdayNotificationsAsync()
     {
+#if ANDROID
         try
         {
-            // Request runtime permission (required on Android 13+)
-            var granted = await LocalNotificationCenter.Current.RequestNotificationPermission();
-            if (!granted)
+            var context = global::Android.App.Application.Context;
+            var alarmManager = (AlarmManager?)context.GetSystemService(Context.AlarmService);
+            if (alarmManager == null)
             {
-                return;
+                return Task.CompletedTask;
             }
 
-            // Cancel all previously scheduled workday notifications
-            foreach (var (id, _) in WorkdaySchedule)
+            // Ensure the notification channel exists before the first alarm fires
+            if (Build.VERSION.SdkInt >= BuildVersionCodes.O)
             {
-                LocalNotificationCenter.Current.Cancel(id);
+                var channel = new NotificationChannel(
+                    NotificationBroadcastReceiver.ChannelId,
+                    "Investy Daily",
+                    NotificationImportance.Default);
+                var nm = (NotificationManager?)context.GetSystemService(Context.NotificationService);
+                nm?.CreateNotificationChannel(channel);
             }
 
-            // Schedule one weekly recurring notification per workday
-            foreach (var (id, day) in WorkdaySchedule)
+            foreach (var (requestCode, day) in WorkdaySchedule)
             {
-                var notifyAt = GetNext8pmFor(day);
-                var request = new NotificationRequest
+                var broadcastIntent = new Intent(context, typeof(NotificationBroadcastReceiver));
+
+                var pendingIntent = PendingIntent.GetBroadcast(
+                    context,
+                    requestCode,
+                    broadcastIntent,
+                    PendingIntentFlags.UpdateCurrent | PendingIntentFlags.Immutable);
+
+                if (pendingIntent == null)
                 {
-                    NotificationId = id,
-                    Title = "Investy",
-                    Description = "محفظتك تنتظرك — اطّلع على آخر أسعار اليوم",
-                    Schedule = new NotificationRequestSchedule
-                    {
-                        NotifyTime = notifyAt,
-                        RepeatType = NotificationRepeat.Weekly
-                    }
-                };
-                await LocalNotificationCenter.Current.Show(request);
+                    continue;
+                }
+
+                // Cancel any existing alarm for this day before rescheduling
+                alarmManager.Cancel(pendingIntent);
+
+                // Schedule a repeating weekly alarm (inexact on Android 6+ in Doze mode —
+                // acceptable for a reminder notification; a few-minute delay is fine)
+                var firstTriggerMs = GetNext8pmMs(day);
+                alarmManager.SetRepeating(
+                    AlarmType.RtcWakeup,
+                    firstTriggerMs,
+                    WeeklyIntervalMs,
+                    pendingIntent);
             }
         }
         catch
         {
-            // Notification scheduling is best-effort; silently ignore any errors
+            // Notification scheduling is best-effort; silently ignore errors
         }
+#endif
+        return Task.CompletedTask;
     }
 
     /// <summary>
-    /// Returns the next DateTime at 8:00 PM (device local time) for the given day of week.
-    /// If today IS that day but it's already 8 PM or later, returns the same day next week.
+    /// Returns the next 8:00 PM occurrence of <paramref name="targetDay"/> as milliseconds
+    /// since the Unix epoch (UTC), suitable for AlarmManager.
+    /// If today is the target day but it's already 8 PM or later, the alarm is set for next week.
     /// </summary>
-    private static DateTime GetNext8pmFor(DayOfWeek targetDay)
+    private static long GetNext8pmMs(DayOfWeek targetDay)
     {
         var now = DateTime.Now;
         int daysUntil = ((int)targetDay - (int)now.DayOfWeek + 7) % 7;
 
-        // Already past 8 PM today for this weekday -> push to next week
+        // Same day but already past 8 PM → push to next week
         if (daysUntil == 0 && now.Hour >= 20)
         {
             daysUntil = 7;
         }
 
-        return now.Date.AddDays(daysUntil).AddHours(20); // 20:00 = 8 PM
+        var triggerLocal = now.Date.AddDays(daysUntil).AddHours(20); // 8:00 PM local time
+        var epoch = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        return (long)(triggerLocal.ToUniversalTime() - epoch).TotalMilliseconds;
     }
 }
