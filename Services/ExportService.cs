@@ -40,7 +40,7 @@ public class ExportService
 
         var assetsSheet = workbook.Worksheets.Add("الأصول");
         WriteTitle(assetsSheet, "حالة الأصول", 13);
-        WriteHeaders(assetsSheet, 3, "الكود", "الاسم", "النوع", "العملة", "السعر الحالي", "الوحدات", "إجمالي المدفوع", "القيمة السوقية", "الربح/الخسارة غير المحققة", "نسبة غير المحقق", "الربح/الخسارة المحققة", "إجمالي الربح/الخسارة", "نسبة إجمالية");
+        WriteHeaders(assetsSheet, 3, "الكود", "الاسم", "النوع", "السعر الحالي", "الوحدات", "إجمالي المدفوع", "القيمة السوقية", "الربح/الخسارة غير المحققة", "نسبة غير المحقق", "الربح/الخسارة المحققة", "إجمالي الربح/الخسارة", "نسبة إجمالية");
         for (var i = 0; i < holdings.Count; i++)
         {
             var row = i + 4;
@@ -48,21 +48,20 @@ public class ExportService
             assetsSheet.Cell(row, 1).Value = item.Asset.AssetCode;
             assetsSheet.Cell(row, 2).Value = item.Asset.AssetName;
             assetsSheet.Cell(row, 3).Value = AssetTypeLabel(item.Asset);
-            assetsSheet.Cell(row, 4).Value = item.Asset.Currency;
-            assetsSheet.Cell(row, 5).Value = item.CurrentPrice;
-            assetsSheet.Cell(row, 6).Value = item.TotalUnitsHeld;
-            assetsSheet.Cell(row, 7).Value = item.TotalPaidIncludingFees;
-            assetsSheet.Cell(row, 8).Value = item.CurrentValue;
-            assetsSheet.Cell(row, 9).Value = item.UnrealizedPnL;
-            assetsSheet.Cell(row, 10).Value = item.UnrealizedPnLPercent / 100m;
-            assetsSheet.Cell(row, 11).Value = item.RealizedPnL;
-            assetsSheet.Cell(row, 12).Value = item.TotalPnL;
-            assetsSheet.Cell(row, 13).Value = item.TotalPnLPercent / 100m;
+            assetsSheet.Cell(row, 4).Value = item.CurrentPrice;
+            assetsSheet.Cell(row, 5).Value = item.TotalUnitsHeld;
+            assetsSheet.Cell(row, 6).Value = item.TotalPaidIncludingFees;
+            assetsSheet.Cell(row, 7).Value = item.CurrentValue;
+            assetsSheet.Cell(row, 8).Value = item.UnrealizedPnL;
+            assetsSheet.Cell(row, 9).Value = item.UnrealizedPnLPercent / 100m;
+            assetsSheet.Cell(row, 10).Value = item.RealizedPnL;
+            assetsSheet.Cell(row, 11).Value = item.TotalPnL;
+            assetsSheet.Cell(row, 12).Value = item.TotalPnLPercent / 100m;
         }
-        StyleDataRange(assetsSheet, 3, holdings.Count + 3, 13);
-        FormatMoneyColumns(assetsSheet, 5, 5, 7, 8, 9, 11, 12);
-        FormatNumberColumns(assetsSheet, 6);
-        FormatPercentColumns(assetsSheet, 10, 13);
+        StyleDataRange(assetsSheet, 3, holdings.Count + 3, 12);
+        FormatMoneyColumns(assetsSheet, 4, 6, 7, 8, 10, 11);
+        FormatNumberColumns(assetsSheet, 5);
+        FormatPercentColumns(assetsSheet, 9, 12);
 
         var transactionsSheet = workbook.Worksheets.Add("العمليات");
         WriteTitle(transactionsSheet, "سجل العمليات", 8);
