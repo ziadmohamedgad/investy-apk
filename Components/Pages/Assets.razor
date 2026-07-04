@@ -48,8 +48,8 @@
                 else
                 {
                     <span><em>@(IsPreciousMetal(item.Asset) ? "الجرامات" : "الوحدات")</em> <b class="@BalanceClass">@item.TotalUnitsHeld.ToString("N2")</b></span>
-                    <span><em>متوسط الشراء</em> <b class="@BalanceClass">@CurrencyValue(item.AverageBuyPrice)</b></span>
-                    <span><em>السعر الحالي</em> <b class="@BalanceClass">@CurrencyValue(item.CurrentPrice)</b></span>
+                    <span><em>متوسط الشراء</em> <b class="@BalanceClass">@CurrencyValue(item.AverageBuyPrice, "#,##0.##########")</b></span>
+                    <span><em>السعر الحالي</em> <b class="@BalanceClass">@CurrencyValue(item.CurrentPrice, "#,##0.##########")</b></span>
                     <span><em>إجمالي المدفوع بالرسوم</em> <b class="@BalanceClass">@CurrencyValue(item.TotalPaidIncludingFees)</b></span>
                     <span><em>إجمالي الربح/الخسارة غير المحققة</em> <b class="@($"{Tone(item.UnrealizedPnL)} {BalanceClass}")">@CurrencyValue(item.UnrealizedPnL) <small>@PercentValue(item.UnrealizedPnLPercent)</small></b></span>
                     <span><em>إجمالي الربح/الخسارة المحققة</em> <b class="@($"{Tone(item.RealizedPnL)} {BalanceClass}")">@CurrencyValue(item.RealizedPnL)</b></span>
@@ -263,7 +263,7 @@
     private string PriceEditorTitle => priceEditorAsset?.IsDailyAccrualFund == true
         ? $"تعديل النسبة - {priceEditorAsset.AssetCode}"
         : $"تحديث سعر - {priceEditorAsset?.AssetCode}";
-    private MarkupString CurrencyValue(decimal value) => (MarkupString)$"<span class=\"money-value\"><span class=\"money-number\">{value:N2}</span><span class=\"currency-mark\">ج.م</span></span>";
+    private MarkupString CurrencyValue(decimal value, string format = "N2") => (MarkupString)$"<span class=\"money-value\"><span class=\"money-number\">{value.ToString(format)}</span><span class=\"currency-mark\">ج.م</span></span>";
     private string PercentValue(decimal value) => $"{value.ToString("N2")}%";
     private static string Tone(decimal value) => value > 0 ? "positive" : value < 0 ? "negative" : string.Empty;
     private static bool IsPreciousMetal(Asset asset) => asset.AssetType == AssetType.Gold || asset.AssetType == AssetType.Silver;

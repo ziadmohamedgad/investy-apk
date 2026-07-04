@@ -273,7 +273,7 @@
                     else
                     {
                         <span>الوحدات <b class="@BalanceClass">@transaction.Quantity.ToString("N2")</b></span>
-                        <span>السعر <b class="@BalanceClass">@MoneyValue(transaction.PricePerUnit)</b></span>
+                        <span>السعر <b class="@BalanceClass">@MoneyValue(transaction.PricePerUnit, "#,##0.##########")</b></span>
                         <span>الصافي <b class="@BalanceClass">@MoneyValue(transaction.NetAmount)</b></span>
                     }
                 </div>
@@ -1073,7 +1073,7 @@
     }
 
     private string BalanceClass => Balance.HideBalances ? "balance-value is-hidden" : "balance-value";
-    private string MoneyValue(decimal value) => $"{value.ToString("N2")} \u062c.\u0645";
+    private string MoneyValue(decimal value, string format = "N2") => $"{value.ToString(format)} \u062c.\u0645";
     private AssetType ManualSearchAssetType => manualType switch
     {
         "Gold" => AssetType.Gold,
