@@ -650,13 +650,9 @@
 
                 if (dividendKind == "Stock" && FreeSharesInvalid)
                 {
-                    throw new InvalidOperationException("عدد الأسهم المجانية يجب أن يكون أكبر من صفر.");
+                    throw new InvalidOperationException("العدد يجب أن يكون أكبر من صفر.");
                 }
 
-                if (dividendKind == "Stock" && (!freeSharesMarketPrice.HasValue || freeSharesMarketPrice.Value <= 0))
-                {
-                    throw new InvalidOperationException("السعر السوقي الحالي مطلوب لتسجيل أسهم مجانية.");
-                }
             }
             if (transactionType == "Sell" && !CanSelectSell)
             {
