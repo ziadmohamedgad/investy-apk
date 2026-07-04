@@ -251,17 +251,15 @@
     private static string Tone(decimal value) => value > 0 ? "positive" : value < 0 ? "negative" : string.Empty;
     private static string CodeClass(Asset asset) => asset.IsDailyAccrualFund ? "cloud"
         : asset.AssetType == AssetType.Gold ? "gold"
-        : asset.AssetType == AssetType.Silver ? "silver"
         : asset.AssetType == AssetType.Fund ? "fund"
         : asset.AssetType != AssetType.Stock ? "blue"
         : string.Empty;
     private static string AssetTypeToggleLabel(string type) => type switch
     {
         "Stock" => "الأسهم",
-        "Gold" => "الذهب",
-        "Silver" => "الفضة",
-        "Fund" => "الصناديق",
-        "TCD" => "الكلاود",
+        "Gold" => "ذهب",
+        "Fund" => "صناديق",
+        "TCD" => "ص.عائد يومي",
         "Other" => "الأخرى",
         _ => type
     };
@@ -270,10 +268,9 @@
     {
         "Stock" => 1,
         "Gold" => 2,
-        "Silver" => 3,
-        "Fund" => 4,
-        "TCD" => 5,
-        "Other" => 6,
+        "Fund" => 3,
+        "TCD" => 4,
+        "Other" => 5,
         _ => 99
     };
 

@@ -8,7 +8,7 @@
     <div class="setup-card">
         <BrandLogo Class="large" />
         <h1>مفتاح EODHD</h1>
-        <p>أدخل المفتاح أول مرة فقط. سيحفظ داخل الهاتف ويستخدم للمزامنة والبحث عن الأسهم.</p>
+        <div class="subtitle">قم بالتسجيل في موقع EODHD لتحصل على الـ API Key. أدخل المفتاح أول مرة فقط. سيحفظ داخل الهاتف ويستخدم للمزامنة والبحث عن الأسهم.</div>
         <input class="field" placeholder="EODHD API Key" @bind="apiKeyInput" @onkeydown="HandleKey" />
         @if (!string.IsNullOrWhiteSpace(message))
         {

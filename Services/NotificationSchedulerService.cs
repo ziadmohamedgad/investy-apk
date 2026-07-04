@@ -27,16 +27,27 @@ public class NotificationSchedulerService
     /// <summary>7 days in milliseconds — repeat interval for each alarm.</summary>
     private const long WeeklyIntervalMs = 7L * 24 * 60 * 60 * 1000;
 
-    public Task ScheduleWorkdayNotificationsAsync()
+    public async Task ScheduleWorkdayNotificationsAsync()
     {
 #if ANDROID
         try
         {
+            var status = await Permissions.CheckStatusAsync<Permissions.PostNotifications>();
+            if (status != PermissionStatus.Granted)
+            {
+                status = await Permissions.RequestAsync<Permissions.PostNotifications>();
+            }
+
+            if (status != PermissionStatus.Granted)
+            {
+                return;
+            }
+
             var context = global::Android.App.Application.Context;
             var alarmManager = (AlarmManager?)context.GetSystemService(Context.AlarmService);
             if (alarmManager == null)
             {
-                return Task.CompletedTask;
+                return;
             }
 
             // Ensure the notification channel exists before the first alarm fires
@@ -83,7 +94,6 @@ public class NotificationSchedulerService
             // Notification scheduling is best-effort; silently ignore errors
         }
 #endif
-        return Task.CompletedTask;
     }
 
     /// <summary>

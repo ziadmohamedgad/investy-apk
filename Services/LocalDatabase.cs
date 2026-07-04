@@ -30,11 +30,27 @@ public class LocalDatabase
         {
             await db.ExecuteAsync($"ALTER TABLE Asset ADD COLUMN {nameof(Asset.ClosedRealizedPnL)} TEXT NOT NULL DEFAULT '0'");
         }
+        if (!assetColumns.Any(c => string.Equals(c.Name, nameof(Asset.GoldCashbackPerGram), StringComparison.OrdinalIgnoreCase)))
+        {
+            await db.ExecuteAsync($"ALTER TABLE Asset ADD COLUMN {nameof(Asset.GoldCashbackPerGram)} TEXT NOT NULL DEFAULT '28.5'");
+        }
+        if (!assetColumns.Any(c => string.Equals(c.Name, nameof(Asset.DailyAccrualAnnualRatePercent), StringComparison.OrdinalIgnoreCase)))
+        {
+            await db.ExecuteAsync($"ALTER TABLE Asset ADD COLUMN {nameof(Asset.DailyAccrualAnnualRatePercent)} TEXT NOT NULL DEFAULT '16'");
+        }
+        if (!assetColumns.Any(c => string.Equals(c.Name, nameof(Asset.IsDailyAccrualFund), StringComparison.OrdinalIgnoreCase)))
+        {
+            await db.ExecuteAsync($"ALTER TABLE Asset ADD COLUMN {nameof(Asset.IsDailyAccrualFund)} INTEGER NOT NULL DEFAULT 0");
+        }
 
         var txColumns = await db.QueryAsync<TableColumn>("PRAGMA table_info(InvestmentTransaction)");
         if (!txColumns.Any(c => string.Equals(c.Name, nameof(InvestmentTransaction.DividendKind), StringComparison.OrdinalIgnoreCase)))
         {
             await db.ExecuteAsync($"ALTER TABLE InvestmentTransaction ADD COLUMN {nameof(InvestmentTransaction.DividendKind)} INTEGER NOT NULL DEFAULT 0");
+        }
+        if (!txColumns.Any(c => string.Equals(c.Name, nameof(InvestmentTransaction.ManufacturingFeePerGram), StringComparison.OrdinalIgnoreCase)))
+        {
+            await db.ExecuteAsync($"ALTER TABLE InvestmentTransaction ADD COLUMN {nameof(InvestmentTransaction.ManufacturingFeePerGram)} TEXT NOT NULL DEFAULT '0'");
         }
     }
 

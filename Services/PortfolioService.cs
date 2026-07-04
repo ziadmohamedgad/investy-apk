@@ -244,12 +244,9 @@ public class PortfolioService
             {
                 if (transaction.DividendKind == DividendKind.Stock)
                 {
-                    // Free shares: added at zero cost — total cost basis stays the same,
-                    // which naturally reduces the average cost per share.
-                    // e.g. 10 shares @ 10 EGP total + 5 free shares → 15 shares @ 10 EGP total → avg = 0.67
                     var previousTotal = avgCost * unitsHeld;
                     unitsHeld += transaction.Quantity;
-                    avgCost = unitsHeld > 0 ? previousTotal / unitsHeld : 0;
+                    avgCost = unitsHeld > 0 ? (previousTotal + transaction.NetAmount) / unitsHeld : 0;
                 }
                 else
                 {
