@@ -273,20 +273,32 @@
         : asset.AssetType == AssetType.Fund ? "fund"
         : asset.AssetType != AssetType.Stock ? "blue"
         : string.Empty;
-    private static string AssetTypeLabel(Asset asset) => asset.IsDailyAccrualFund ? "Cloud"
-        : asset.AssetType == AssetType.Silver ? "Silver"
-        : asset.AssetType.ToString();
+    private static string AssetTypeLabel(Asset asset) => asset.IsDailyAccrualFund ? "صندوق تراكمي"
+        : asset.AssetType == AssetType.Stock ? "سهم"
+        : asset.AssetType == AssetType.Gold ? "ذهب"
+        : asset.AssetType == AssetType.Silver ? "فضة"
+        : asset.AssetType == AssetType.Fund ? "صندوق"
+        : asset.AssetType == AssetType.Crypto ? "كريبتو"
+        : asset.AssetType == AssetType.ETF ? "وثيقة"
+        : "أخرى";
 
     /// <summary>
     /// Cleans up the asset display name:
-    /// 1. Removes trailing English prepositions/conjunctions (e.g. "And", "Or", "Of", "For", etc.)
-    /// 2. Truncates at word boundary to max 30 characters.
+    /// 1. Truncates at word boundary to max 30 characters.
+    /// 2. Removes trailing English prepositions/conjunctions (e.g. "And", "Or", "Of", "For", etc.)
     /// </summary>
     private static string DisplayAssetName(string name)
     {
         var cleanName = (name ?? string.Empty).Trim();
+        const int maxLength = 30;
 
-        // Remove trailing prepositions / conjunctions (case-insensitive)
+        if (cleanName.Length > maxLength)
+        {
+            var cutIndex = cleanName.LastIndexOf(' ', maxLength);
+            cleanName = (cutIndex > 0 ? cleanName[..cutIndex] : cleanName[..maxLength]).Trim();
+        }
+
+        // Remove trailing prepositions / conjunctions (case-insensitive) after truncation
         var prepositions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
             "And", "Or", "Of", "The", "For", "In", "On", "At", "To", "By", "With", "From", "A", "An",
@@ -298,16 +310,7 @@
         {
             words.RemoveAt(words.Count - 1);
         }
-        cleanName = string.Join(" ", words).Trim();
-
-        const int maxLength = 30;
-        if (cleanName.Length <= maxLength)
-        {
-            return cleanName;
-        }
-
-        var cutIndex = cleanName.LastIndexOf(' ', maxLength);
-        return (cutIndex > 0 ? cleanName[..cutIndex] : cleanName[..maxLength]).Trim();
+        return string.Join(" ", words).Trim();
     }
 
     private async Task ShowMessageAsync(string text)

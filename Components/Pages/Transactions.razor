@@ -239,7 +239,10 @@
             var isTcdTx = asset?.IsDailyAccrualFund == true;
             <article class="transaction-card @(transaction.TransactionType == TransactionKind.Dividend ? "is-dividend" : "")">
                 <div class="transaction-head">
-                    <span class="code @CodeClass(asset)">@asset?.AssetCode</span>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span class="code @CodeClass(asset)">@asset?.AssetCode</span>
+                        <small style="color: var(--muted); font-size: 0.85rem;">@AssetTypeLabel(asset)</small>
+                    </div>
                     <div class="transaction-meta" dir="rtl">
                         <strong class="@TransactionTypeClass(transaction)">@TransactionTypeLabel(transaction, asset)</strong>
                         <small>@transaction.TransactionDate.ToString("yyyy/MM/dd")</small>
@@ -1084,6 +1087,15 @@
         : asset?.AssetType == AssetType.Fund ? "fund"
         : asset?.AssetType != AssetType.Stock ? "blue"
         : string.Empty;
+    private static string AssetTypeLabel(Asset? asset) => asset?.IsDailyAccrualFund == true ? "صندوق تراكمي"
+        : asset?.AssetType == AssetType.Stock ? "سهم"
+        : asset?.AssetType == AssetType.Gold ? "ذهب"
+        : asset?.AssetType == AssetType.Silver ? "فضة"
+        : asset?.AssetType == AssetType.Fund ? "صندوق"
+        : asset?.AssetType == AssetType.Crypto ? "كريبتو"
+        : asset?.AssetType == AssetType.ETF ? "وثيقة"
+        : "أخرى";
+
     private static string TransactionTypeLabel(InvestmentTransaction transaction, Asset? asset)
     {
         var isTcd = asset?.IsDailyAccrualFund == true;
