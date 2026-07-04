@@ -1,5 +1,8 @@
 @page "/settings"
 @inject EodhdMobileService Eodhd
+@inject LocalDatabase Database
+@inject PortfolioService Portfolio
+@inject ExportService Exporter
 @inject NavigationManager Nav
 
 <PageTitle>الإعدادات</PageTitle>
@@ -15,6 +18,16 @@
 {
     <div class="notice">@message</div>
 }
+
+<section class="surface">
+    <div class="section-title">
+        <h2>الأسعار والبيانات</h2>
+    </div>
+    <div class="head-actions inline-actions" style="margin-top:12px;">
+        <button class="ghost export-button" @onclick="ExportAsync" disabled="@busy">تصدير ملف</button>
+        <button class="primary" @onclick="SyncPricesAsync" disabled="@busy">مزامنة الأسعار</button>
+    </div>
+</section>
 
 <section class="surface">
     <div class="section-title">
@@ -65,6 +78,7 @@
     private string? message;
     private bool busy;
     private bool loadingStatus;
+    private List<Asset> assets = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -74,6 +88,7 @@
             return;
         }
 
+        assets = await Database.GetAssetsAsync();
         await LoadStatusAsync();
     }
 
@@ -82,6 +97,50 @@
         loadingStatus = true;
         status = await Eodhd.GetUserStatusAsync();
         loadingStatus = false;
+    }
+
+    private async Task SyncPricesAsync()
+    {
+        busy = true;
+        var synced = 0;
+        foreach (var asset in assets.Where(a => a.AssetType == AssetType.Stock && !string.IsNullOrWhiteSpace(a.ExternalTicker)))
+        {
+            var price = await Eodhd.FetchLatestPriceAsync(asset.ExternalTicker!);
+            if (price == null)
+            {
+                continue;
+            }
+
+            await Database.SavePriceAsync(new AssetPrice
+            {
+                AssetId = asset.AssetId,
+                PriceDate = price.Value.Date.Date,
+                PriceValue = price.Value.Price,
+                Source = PriceSource.Eodhd
+            });
+            synced++;
+        }
+
+        busy = false;
+        await ShowMessageAsync(synced == 0 ? "لم يتم تحديث أي سعر." : $"تم تحديث {synced} سعر.");
+    }
+
+    private async Task ExportAsync()
+    {
+        try
+        {
+            busy = true;
+            var path = await Exporter.ExportWorkbookAsync();
+            await ShowMessageAsync($"تم حفظ الملف في التنزيلات: {Path.GetFileName(path)}");
+        }
+        catch (Exception ex)
+        {
+            await ShowMessageAsync($"تعذر حفظ الملف: {ex.Message}");
+        }
+        finally
+        {
+            busy = false;
+        }
     }
 
     private async Task SaveAsync()

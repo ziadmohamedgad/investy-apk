@@ -778,6 +778,11 @@ small,
     color: #0f766e;
 }
 
+.code.silver {
+    background: #f1f5f9;
+    color: #475569;
+}
+
 .asset-count-label {
     grid-column: 2;
     grid-row: 2;

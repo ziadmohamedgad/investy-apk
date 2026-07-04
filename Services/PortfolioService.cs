@@ -8,6 +8,9 @@ public class PortfolioService
     private const decimal ClosedPositionQuantityTolerance = 0.005m;
     private readonly LocalDatabase _database;
 
+    /// <summary>Egypt does not currently observe DST; UTC+3 is always correct.</summary>
+    private static readonly TimeSpan EgyptOffset = TimeSpan.FromHours(3);
+
     public PortfolioService(LocalDatabase database)
     {
         _database = database;
@@ -74,7 +77,8 @@ public class PortfolioService
         decimal fees,
         decimal manufacturingFeePerGram,
         string? notes,
-        int transactionId = 0)
+        int transactionId = 0,
+        DividendKind dividendKind = DividendKind.Cash)
     {
         if (quantityOrAmount <= 0)
         {
@@ -100,7 +104,7 @@ public class PortfolioService
         }
 
         var accrualStartDate = GetDailyAccrualStartDate(asset, existing, transactionDate);
-        var normalized = NormalizeTransaction(asset, kind, transactionDate, quantityOrAmount, pricePerUnit, fees, manufacturingFeePerGram, accrualStartDate);
+        var normalized = NormalizeTransaction(asset, kind, transactionDate, quantityOrAmount, pricePerUnit, fees, manufacturingFeePerGram, accrualStartDate, dividendKind);
         await ValidateSellAgainstCurrentMarketValueAsync(asset, existing, kind, normalized.NetAmount);
 
         var transaction = new InvestmentTransaction
@@ -115,6 +119,7 @@ public class PortfolioService
             Fees = fees,
             ManufacturingFeePerGram = manufacturingFeePerGram,
             NetAmount = normalized.NetAmount,
+            DividendKind = dividendKind,
             Notes = string.IsNullOrWhiteSpace(notes) ? null : notes.Trim()
         };
 
@@ -176,6 +181,12 @@ public class PortfolioService
                     throw new InvalidOperationException("لا يمكن تسجيل أرباح قبل وجود عملية شراء سابقة للسهم.");
                 }
 
+                // Stock dividends add free shares to units held
+                if (transaction.DividendKind == DividendKind.Stock)
+                {
+                    unitsHeld += transaction.Quantity;
+                }
+
                 continue;
             }
 
@@ -199,6 +210,7 @@ public class PortfolioService
 
     private static AssetSummary CalculateStandardAssetSummary(Asset asset, List<InvestmentTransaction> transactions, decimal currentPrice)
     {
+        var isPreciousMetal = asset.AssetType == AssetType.Gold || asset.AssetType == AssetType.Silver;
         decimal unitsHeld = 0;
         decimal avgCost = 0;
         decimal realizedPnL = asset.ClosedRealizedPnL;
@@ -207,14 +219,14 @@ public class PortfolioService
 
         foreach (var transaction in transactions.OrderBy(t => t.TransactionDate).ThenBy(t => t.TransactionId))
         {
-            var goldPerGramAmount = asset.AssetType == AssetType.Gold
+            var metalPerGramAmount = isPreciousMetal
                 ? transaction.Quantity * transaction.ManufacturingFeePerGram
                 : 0m;
 
             if (transaction.TransactionType == TransactionKind.Buy)
             {
                 var previousTotal = avgCost * unitsHeld;
-                var newTotal = transaction.TotalAmount + goldPerGramAmount + transaction.Fees;
+                var newTotal = transaction.TotalAmount + metalPerGramAmount + transaction.Fees;
                 totalFeesPaid += transaction.Fees;
                 unitsHeld += transaction.Quantity;
                 avgCost = unitsHeld > 0 ? (previousTotal + newTotal) / unitsHeld : 0;
@@ -222,15 +234,28 @@ public class PortfolioService
             else if (transaction.TransactionType == TransactionKind.Sell)
             {
                 totalFeesPaid += transaction.Fees;
-                var saleProceeds = transaction.TotalAmount + goldPerGramAmount - transaction.Fees;
+                var saleProceeds = transaction.TotalAmount + metalPerGramAmount - transaction.Fees;
                 var soldCostBasis = avgCost * transaction.Quantity;
                 realizedCostBasis += soldCostBasis;
                 realizedPnL += saleProceeds - soldCostBasis;
                 unitsHeld -= transaction.Quantity;
             }
-            else
+            else // Dividend
             {
-                realizedPnL += transaction.NetAmount;
+                if (transaction.DividendKind == DividendKind.Stock)
+                {
+                    // Free shares: added at zero cost — total cost basis stays the same,
+                    // which naturally reduces the average cost per share.
+                    // e.g. 10 shares @ 10 EGP total + 5 free shares → 15 shares @ 10 EGP total → avg = 0.67
+                    var previousTotal = avgCost * unitsHeld;
+                    unitsHeld += transaction.Quantity;
+                    avgCost = unitsHeld > 0 ? previousTotal / unitsHeld : 0;
+                }
+                else
+                {
+                    // Cash dividend: goes directly to realized P&L
+                    realizedPnL += transaction.NetAmount;
+                }
             }
         }
 
@@ -238,7 +263,7 @@ public class PortfolioService
         var costBasis = avgCost * unitsHeld;
         var remainingAverageCost = unitsHeld > QuantityTolerance ? avgCost : 0m;
         var isClosedPosition = Math.Abs(unitsHeld) < ClosedPositionQuantityTolerance;
-        var currentValue = asset.AssetType == AssetType.Gold
+        var currentValue = isPreciousMetal
             ? unitsHeld * (currentPrice + asset.GoldCashbackPerGram)
             : unitsHeld * currentPrice;
         var unrealizedPnL = currentValue - costBasis;
@@ -258,15 +283,17 @@ public class PortfolioService
             Math.Round(realizedPnL, 2),
             realizedCostBasis != 0 ? Math.Round(realizedPnL / realizedCostBasis * 100, 2) : 0,
             Math.Round(unrealizedPnL + realizedPnL, 2),
-            costBasis != 0 ? Math.Round((unrealizedPnL + realizedPnL) / costBasis * 100, 2) : 0);
+            costBasis != 0 ? Math.Round((unrealizedPnL + realizedPnL) / costBasis * 100, 2) : 0,
+            0m); // TotalAccruedReturn is only meaningful for TCD
     }
 
     private static AssetSummary CalculateDailyAccrualFundSummary(Asset asset, List<InvestmentTransaction> transactions)
     {
         decimal unitsHeld = 0;
         decimal avgCost = 0;
+        decimal totalDepositedNet = 0; // sum of all buy netAmounts (deposits including fees)
+        decimal totalWithdrawnNet = 0; // sum of all sell netAmounts (proceeds after fees)
         decimal realizedPnL = asset.ClosedRealizedPnL;
-        decimal realizedCostBasis = 0;
         decimal totalFeesPaid = 0;
         var accrualStartDate = GetDailyAccrualStartDate(asset, transactions);
 
@@ -285,6 +312,7 @@ public class PortfolioService
                 var previousTotal = avgCost * unitsHeld;
                 var newTotal = transaction.TotalAmount + transaction.Fees;
                 totalFeesPaid += transaction.Fees;
+                totalDepositedNet += transaction.NetAmount;
                 unitsHeld += units;
                 avgCost = unitsHeld > 0 ? (previousTotal + newTotal) / unitsHeld : 0;
             }
@@ -293,13 +321,9 @@ public class PortfolioService
                 totalFeesPaid += transaction.Fees;
                 var saleProceeds = transaction.TotalAmount - transaction.Fees;
                 var soldCostBasis = avgCost * units;
-                realizedCostBasis += soldCostBasis;
+                totalWithdrawnNet += transaction.NetAmount;
                 realizedPnL += saleProceeds - soldCostBasis;
                 unitsHeld -= units;
-            }
-            else
-            {
-                realizedPnL += transaction.NetAmount;
             }
         }
 
@@ -310,6 +334,10 @@ public class PortfolioService
         var isClosedPosition = Math.Abs(unitsHeld) < ClosedPositionQuantityTolerance;
         var currentValue = unitsHeld * currentPrice;
         var unrealizedPnL = currentValue - costBasis;
+
+        // TotalAccruedReturn = total growth regardless of withdrawals
+        // = (current balance + all withdrawn proceeds) - all deposited amounts
+        var totalAccruedReturn = Math.Round((currentValue + totalWithdrawnNet) - totalDepositedNet, 2);
 
         return new AssetSummary(
             asset,
@@ -324,9 +352,10 @@ public class PortfolioService
             Math.Round(unrealizedPnL, 2),
             costBasis != 0 ? Math.Round(unrealizedPnL / costBasis * 100, 2) : 0,
             Math.Round(realizedPnL, 2),
-            realizedCostBasis != 0 ? Math.Round(realizedPnL / realizedCostBasis * 100, 2) : 0,
+            0m,
             Math.Round(unrealizedPnL + realizedPnL, 2),
-            costBasis != 0 ? Math.Round((unrealizedPnL + realizedPnL) / costBasis * 100, 2) : 0);
+            costBasis != 0 ? Math.Round((unrealizedPnL + realizedPnL) / costBasis * 100, 2) : 0,
+            totalAccruedReturn);
     }
 
     private static (decimal Quantity, decimal PricePerUnit, decimal TotalAmount, decimal NetAmount) NormalizeTransaction(
@@ -337,12 +366,24 @@ public class PortfolioService
         decimal pricePerUnit,
         decimal fees,
         decimal manufacturingFeePerGram,
-        DateTime accrualStartDate)
+        DateTime accrualStartDate,
+        DividendKind dividendKind = DividendKind.Cash)
     {
-        var goldPerGramAmount = asset.AssetType == AssetType.Gold ? quantity * manufacturingFeePerGram : 0m;
+        var isPreciousMetal = asset.AssetType == AssetType.Gold || asset.AssetType == AssetType.Silver;
+        var metalPerGramAmount = isPreciousMetal ? quantity * manufacturingFeePerGram : 0m;
 
         if (kind == TransactionKind.Dividend)
         {
+            if (dividendKind == DividendKind.Stock)
+            {
+                // quantity = free shares, pricePerUnit = current market price (stored for record-keeping only)
+                // Free shares are added at zero cost: total cost basis is unchanged, avg cost decreases.
+                // NetAmount = 0 (no cash changes hands)
+                var stockDivTotal = quantity * pricePerUnit;
+                return (quantity, pricePerUnit, stockDivTotal, 0m);
+            }
+
+            // Cash dividend
             return (0m, 0m, quantity, quantity);
         }
 
@@ -350,12 +391,12 @@ public class PortfolioService
         {
             var totalAmount = quantity * pricePerUnit;
             var standardNetAmount = kind == TransactionKind.Buy
-                ? totalAmount + goldPerGramAmount + fees
-                : totalAmount + goldPerGramAmount - fees;
+                ? totalAmount + metalPerGramAmount + fees
+                : totalAmount + metalPerGramAmount - fees;
 
             if (kind == TransactionKind.Sell && standardNetAmount < 0)
             {
-                throw new InvalidOperationException("صافي البيع بعد الرسوم لا يمكن أن يكون أكبر من القيمة السوقية للأصل");
+                throw new InvalidOperationException("صافي البيع بعد الرسوم لا يمكن أن تكون أكبر من القيمة السوقية للأصل");
             }
 
             return (quantity, pricePerUnit, totalAmount, standardNetAmount);
@@ -372,7 +413,7 @@ public class PortfolioService
         var accrualNetAmount = kind == TransactionKind.Buy ? amount + fees : amount - fees;
         if (kind == TransactionKind.Sell && accrualNetAmount < 0)
         {
-            throw new InvalidOperationException("صافي السحب بعد الرسوم لا يمكن أن يكون أكبر من القيمة السوقية للأصل");
+            throw new InvalidOperationException("صافي السحب بعد الرسوم لا يمكن أن تكون أكبر من القيمة السوقية للأصل");
         }
 
         return (units, unitPrice, amount, accrualNetAmount);
@@ -384,13 +425,17 @@ public class PortfolioService
 
         foreach (var transaction in transactions)
         {
-            var quantity = GetEffectiveQuantity(asset, transaction, accrualStartDate);
-
             if (transaction.TransactionType == TransactionKind.Dividend)
             {
+                // Stock dividends add free shares to holding
+                if (transaction.DividendKind == DividendKind.Stock)
+                {
+                    unitsHeld += transaction.Quantity;
+                }
                 continue;
             }
 
+            var quantity = GetEffectiveQuantity(asset, transaction, accrualStartDate);
             unitsHeld += transaction.TransactionType == TransactionKind.Buy ? quantity : -quantity;
         }
 
@@ -432,12 +477,60 @@ public class PortfolioService
         return dates.Count == 0 ? asset.CreatedAt.Date : dates.Min();
     }
 
+    /// <summary>
+    /// Calculates the TCD unit price considering Egyptian market rules:
+    /// - The "day" rolls over at 5 PM Cairo time (UTC+3, no DST).
+    /// - Thursday's accrual covers 3 days (Thursday + Friday + Saturday, pre-paid).
+    /// - Friday and Saturday show the same price as Thursday after 5 PM — no new accrual.
+    /// - Sunday resumes normal daily accrual.
+    /// </summary>
     public static decimal GetDailyAccrualUnitPrice(Asset asset, DateTime asOf, DateTime? accrualStartDate = null)
     {
         var annualRate = asset.DailyAccrualAnnualRatePercent > 0 ? asset.DailyAccrualAnnualRatePercent : 16m;
         var anchorDate = (accrualStartDate ?? asset.CreatedAt).Date;
-        var days = Math.Max(0d, (asOf.Date - anchorDate).TotalDays);
-        var dailyGrowth = Math.Pow(1d + (double)annualRate / 100d, days / 365.25d);
+
+        // Convert to Egypt local time (UTC+3, no DST)
+        var egyptTime = asOf.Kind == DateTimeKind.Utc
+            ? asOf + EgyptOffset
+            : asOf.ToUniversalTime() + EgyptOffset;
+
+        // Accrual for a given day is posted at 5 PM Egypt time
+        var effectiveDate = egyptTime.Hour < 17
+            ? egyptTime.Date.AddDays(-1)   // Before 5 PM: yesterday's rate applies
+            : egyptTime.Date;              // At/after 5 PM: today's rate is posted
+
+        // Friday and Saturday roll back to the preceding Thursday
+        // (Thursday already pre-paid Fri & Sat returns)
+        if (effectiveDate.DayOfWeek == DayOfWeek.Friday)
+            effectiveDate = effectiveDate.AddDays(-1);   // → Thursday
+        else if (effectiveDate.DayOfWeek == DayOfWeek.Saturday)
+            effectiveDate = effectiveDate.AddDays(-2);   // → Thursday
+
+        if (effectiveDate <= anchorDate)
+            return 1m;
+
+        // Count accrual days from anchorDate+1 to effectiveDate:
+        //   Sunday–Wednesday: +1 each
+        //   Thursday:         +3 (covers Thu + Fri + Sat)
+        //   Friday, Saturday: +0 (pre-counted in Thursday)
+        double accrualDays = 0;
+        for (var d = anchorDate.AddDays(1); d <= effectiveDate; d = d.AddDays(1))
+        {
+            switch (d.DayOfWeek)
+            {
+                case DayOfWeek.Friday:
+                case DayOfWeek.Saturday:
+                    break;
+                case DayOfWeek.Thursday:
+                    accrualDays += 3;
+                    break;
+                default:
+                    accrualDays += 1;
+                    break;
+            }
+        }
+
+        var dailyGrowth = Math.Pow(1d + (double)annualRate / 100d, accrualDays / 365.25d);
         return Math.Round((decimal)dailyGrowth, 6);
     }
 }

@@ -58,8 +58,9 @@
                 <label>
                     نوع الأصل
                     <select class="field" @bind="manualType" @bind:after="OnManualTypeChanged" disabled="@editingTransactionId.HasValue">
-                        <option value="Gold">ذهب</option>
                         <option value="Fund">صندوق / مؤشر</option>
+                        <option value="Gold">ذهب</option>
+                        <option value="Silver">فضة</option>
                         <option value="TCD">صندوق ثاندر كلاود لحظي</option>
                         <option value="Other">أخرى (عقار، ممتلكات، إلخ)</option>
                     </select>
@@ -102,6 +103,19 @@
                     <small class="field-hint">الأرباح متاحة بعد وجود عملية شراء سابقة للسهم.</small>
                 }
             </label>
+
+            @* Dividend sub-type: Cash or Stock *@
+            @if (IsDividend)
+            {
+                <label>
+                    نوع الربح
+                    <select class="field" @bind="dividendKind">
+                        <option value="Cash">نقدية</option>
+                        <option value="Stock">أسهم مجانية</option>
+                    </select>
+                </label>
+            }
+
             @if (!IsTcd)
             {
                 <label>
@@ -113,10 +127,11 @@
                     }
                 </label>
             }
-            @if (IsDividend)
+
+            @if (IsDividend && dividendKind == "Cash")
             {
                 <label>
-                    الربح
+                    الربح النقدي
                     <input class="field" type="number" step="0.01" min="0" @bind="dividendAmount" @bind:event="oninput" />
                     @if (DividendInvalid)
                     {
@@ -124,10 +139,26 @@
                     }
                 </label>
             }
-            else
+            else if (IsDividend && dividendKind == "Stock")
             {
                 <label>
-                    @(IsGold ? "عدد الجرامات" : IsTcd ? "المبلغ" : "الوحدات")
+                    عدد الأسهم المجانية
+                    <input class="field" type="number" step="1" min="0" @bind="freeSharesQuantity" @bind:event="oninput" />
+                    @if (FreeSharesInvalid)
+                    {
+                        <small class="field-hint is-error">عدد الأسهم يجب أن يكون أكبر من صفر.</small>
+                    }
+                </label>
+                <label>
+                    السعر السوقي الحالي للسهم
+                    <input class="field" type="number" step="0.00001" @bind="freeSharesMarketPrice" @bind:event="oninput" />
+                    <small class="field-hint">سيتم تحديث متوسط التكلفة بناءً على هذا السعر.</small>
+                </label>
+            }
+            else if (!IsDividend)
+            {
+                <label>
+                    @(IsGoldOrSilver ? "عدد الجرامات" : IsTcd ? "المبلغ" : "الوحدات")
                     <input class="field" type="number" step="0.01" max="@AvailableSellMaxAttribute" @bind="quantity" @bind:event="oninput" />
                     @if (transactionType == "Sell" && CanSelectSell)
                     {
@@ -139,6 +170,7 @@
                     }
                 </label>
             }
+
             @if (IsTcd && transactionType == "Buy")
             {
                 <label>
@@ -157,11 +189,11 @@
             @if (!IsTcd && !IsDividend)
             {
                 <label>
-                    @(IsGold ? "السعر للجرام" : "السعر للوحدة")
+                    @(IsGoldOrSilver ? "السعر للجرام" : "السعر للوحدة")
                     <input class="field" type="number" step="0.00001" @bind="pricePerUnit" @bind:event="oninput" />
                 </label>
             }
-            @if (IsGold)
+            @if (IsGoldOrSilver)
             {
                 <label>
                     @(transactionType == "Buy" ? "المصنعية للجرام" : "الكاش باك للجرام")
@@ -199,7 +231,7 @@
     }
 </section>
 
-<section class="surface">
+<section class="surface" id="transactions-list-start">
     <div class="section-title">
         <h2>العمليات</h2>
         <span>@transactions.Count عملية</span>
@@ -209,6 +241,7 @@
         @foreach (var transaction in transactions)
         {
             var asset = assets.FirstOrDefault(a => a.AssetId == transaction.AssetId);
+            var isTcdTx = asset?.IsDailyAccrualFund == true;
             <article class="transaction-card @(transaction.TransactionType == TransactionKind.Dividend ? "is-dividend" : "")">
                 <div class="transaction-head">
                     <span class="code @CodeClass(asset)">@asset?.AssetCode</span>
@@ -220,13 +253,30 @@
                 <div class="transaction-numbers">
                     @if (transaction.TransactionType == TransactionKind.Dividend)
                     {
+                        @* Cash dividend or stock dividend - show net only *@
+                        <span class="transaction-net-only">
+                            @if (transaction.DividendKind == DividendKind.Stock)
+                            {
+                                @* Stock dividend: show free shares and market price *@
+                                <span>أسهم مجانية <b class="@BalanceClass">@transaction.Quantity.ToString("N2") سهم</b></span>
+                            }
+                            else
+                            {
+                                @* Cash dividend *@
+                                <span>الصافي <b class="@BalanceClass">@MoneyValue(transaction.NetAmount)</b></span>
+                            }
+                        </span>
+                    }
+                    else if (isTcdTx)
+                    {
+                        @* TCD: show net amount only (no units or price) *@
                         <span class="transaction-net-only">الصافي <b class="@BalanceClass">@MoneyValue(transaction.NetAmount)</b></span>
                     }
                     else
                     {
-                    <span>الوحدات <b class="@BalanceClass">@transaction.Quantity.ToString("N2")</b></span>
-                    <span>السعر <b class="@BalanceClass">@MoneyValue(transaction.PricePerUnit)</b></span>
-                    <span>الصافي <b class="@BalanceClass">@MoneyValue(transaction.NetAmount)</b></span>
+                        <span>الوحدات <b class="@BalanceClass">@transaction.Quantity.ToString("N2")</b></span>
+                        <span>السعر <b class="@BalanceClass">@MoneyValue(transaction.PricePerUnit)</b></span>
+                        <span>الصافي <b class="@BalanceClass">@MoneyValue(transaction.NetAmount)</b></span>
                     }
                 </div>
                 <div class="row-actions">
@@ -266,11 +316,12 @@
     private List<StockSearchResult> manualSuggestions = new();
 
     private string entryMode = "stock";
-    private string manualType = "Gold";
+    private string manualType = "Fund"; // default: Fund (was Gold)
     private string stockQuery = string.Empty;
     private string assetCode = string.Empty;
     private string assetName = string.Empty;
     private string transactionType = "Buy";
+    private string dividendKind = "Cash"; // "Cash" or "Stock"
     private DateTime transactionDate = DateTime.Today;
     private decimal? quantity;
     private decimal? pricePerUnit;
@@ -278,14 +329,22 @@
     private decimal? manufacturingFeePerGram;
     private decimal? dailyAccrualAnnualRatePercent;
     private decimal? dividendAmount;
+    private decimal? freeSharesQuantity;
+    private decimal? freeSharesMarketPrice;
 
     private bool IsGold => entryMode == "other" && manualType == "Gold";
+    private bool IsSilver => entryMode == "other" && manualType == "Silver";
+    private bool IsGoldOrSilver => IsGold || IsSilver;
     private bool IsTcd => entryMode == "other" && manualType == "TCD";
     private bool IsDividend => transactionType == "Dividend";
     private string TodayIso => DateTime.Today.ToString("yyyy-MM-dd");
     private bool IsFutureTransactionDate => !IsTcd && transactionDate.Date > DateTime.Today;
-    private bool IsSaveDisabled => busy || IsFutureTransactionDate || DividendInvalid || (IsDividend && !CanSelectDividend) || IsTcdAnnualRateRequired || (transactionType == "Sell" && (!CanSelectSell || SellExceedsAvailable || SellNetInvalid || SellExceedsMarketValue));
-    private bool DividendInvalid => IsDividend && (!dividendAmount.HasValue || dividendAmount.Value <= 0);
+    private bool DividendInvalid => IsDividend && dividendKind == "Cash" && (!dividendAmount.HasValue || dividendAmount.Value <= 0);
+    private bool FreeSharesInvalid => IsDividend && dividendKind == "Stock" && (!freeSharesQuantity.HasValue || freeSharesQuantity.Value <= 0);
+    private bool IsSaveDisabled => busy || IsFutureTransactionDate || DividendInvalid || FreeSharesInvalid
+        || (IsDividend && !CanSelectDividend)
+        || IsTcdAnnualRateRequired
+        || (transactionType == "Sell" && (!CanSelectSell || SellExceedsAvailable || SellNetInvalid || SellExceedsMarketValue));
     private decimal? TcdExistingRate => IsTcd ? CurrentFormAsset?.DailyAccrualAnnualRatePercent : null;
     private bool IsTcdAnnualRateRequired => IsTcd
         && transactionType == "Buy"
@@ -321,13 +380,13 @@
             var amount = quantity ?? 0m;
             if (IsDividend)
             {
-                return dividendAmount ?? 0m;
+                return dividendKind == "Stock" ? 0m : dividendAmount ?? 0m;
             }
 
             var price = IsTcd ? 1m : pricePerUnit ?? 0m;
             var feeAmount = IsTcd ? 0m : fees ?? 0m;
-            var goldAdjustment = IsGold ? amount * (manufacturingFeePerGram ?? 0m) : 0m;
-            var gross = IsTcd ? amount : amount * price + goldAdjustment;
+            var metalAdjustment = IsGoldOrSilver ? amount * (manufacturingFeePerGram ?? 0m) : 0m;
+            var gross = IsTcd ? amount : amount * price + metalAdjustment;
 
             return transactionType == "Buy" ? gross + feeAmount : gross - feeAmount;
         }
@@ -562,10 +621,10 @@
 
     private async Task SaveTransactionAsync()
     {
-            try
-            {
-                busy = true;
-                message = null;
+        try
+        {
+            busy = true;
+            message = null;
             if (IsFutureTransactionDate)
             {
                 throw new InvalidOperationException("لا يمكن تسجيل عملية بتاريخ مستقبلي.");
@@ -589,9 +648,19 @@
                     throw new InvalidOperationException("الأرباح متاحة بعد وجود عملية شراء سابقة للسهم.");
                 }
 
-                if (DividendInvalid)
+                if (dividendKind == "Cash" && DividendInvalid)
                 {
                     throw new InvalidOperationException("الربح يجب أن يكون أكبر من صفر.");
+                }
+
+                if (dividendKind == "Stock" && FreeSharesInvalid)
+                {
+                    throw new InvalidOperationException("عدد الأسهم المجانية يجب أن يكون أكبر من صفر.");
+                }
+
+                if (dividendKind == "Stock" && (!freeSharesMarketPrice.HasValue || freeSharesMarketPrice.Value <= 0))
+                {
+                    throw new InvalidOperationException("السعر السوقي الحالي مطلوب لتسجيل أسهم مجانية.");
                 }
             }
             if (transactionType == "Sell" && !CanSelectSell)
@@ -626,18 +695,45 @@
 
             var asset = await EnsureAssetAsync();
             await UpdateTcdAnnualRateIfNeededAsync(asset);
+
             var kind = Enum.Parse<TransactionKind>(transactionType);
-            var transactionAmount = IsDividend ? dividendAmount ?? 0m : quantity ?? 0m;
+            var resolvedDividendKind = DividendKind.Cash;
+
+            decimal transactionAmount;
+            decimal resolvedPrice;
+
+            if (IsDividend)
+            {
+                if (dividendKind == "Stock")
+                {
+                    resolvedDividendKind = DividendKind.Stock;
+                    transactionAmount = freeSharesQuantity ?? 0m;
+                    resolvedPrice = freeSharesMarketPrice ?? 0m;
+                }
+                else
+                {
+                    resolvedDividendKind = DividendKind.Cash;
+                    transactionAmount = dividendAmount ?? 0m;
+                    resolvedPrice = 0m;
+                }
+            }
+            else
+            {
+                transactionAmount = quantity ?? 0m;
+                resolvedPrice = IsDividend ? 0m : pricePerUnit ?? 0m;
+            }
+
             var transaction = await Portfolio.BuildTransactionAsync(
                 asset,
                 kind,
                 transactionDate,
                 transactionAmount,
-                IsDividend ? 0m : pricePerUnit ?? 0m,
+                resolvedPrice,
                 IsTcd || IsDividend ? 0m : fees ?? 0m,
                 IsDividend ? 0m : manufacturingFeePerGram ?? 0m,
                 null,
-                editingTransactionId ?? 0);
+                editingTransactionId ?? 0,
+                resolvedDividendKind);
             await Database.SaveTransactionAsync(transaction);
 
             if (!editingTransactionId.HasValue && entryMode == "other" && !asset.IsDailyAccrualFund && (pricePerUnit ?? 0m) > 0)
@@ -659,6 +755,10 @@
             var wasEditing = editingTransactionId.HasValue;
             CloseForm();
             await ReloadAsync();
+
+            // Scroll to top of transactions list so user can see the newly added transaction
+            await JS.InvokeVoidAsync("investyScrollTo", "transactions-list-start");
+
             await ShowMessageAsync(wasEditing ? "تم تعديل العملية." : "تم إجراء العملية.");
         }
         catch (Exception ex)
@@ -703,17 +803,16 @@
         {
             AssetCode = assetCode,
             AssetName = ToAscii(assetName),
-            AssetType = entryMode == "stock" ? AssetType.Stock : manualType == "Gold" ? AssetType.Gold : AssetType.Other,
+            AssetType = entryMode == "stock" ? AssetType.Stock
+                : manualType == "Gold" ? AssetType.Gold
+                : manualType == "Silver" ? AssetType.Silver
+                : manualType == "Fund" ? AssetType.Fund
+                : AssetType.Other,
             ExternalTicker = entryMode == "stock" ? assetCode + ".EGX" : null,
             IsDailyAccrualFund = manualType == "TCD",
             DailyAccrualAnnualRatePercent = manualType == "TCD" ? dailyAccrualAnnualRatePercent!.Value : 0m,
-            GoldCashbackPerGram = manualType == "Gold" ? 28.5m : 0m
+            GoldCashbackPerGram = (manualType == "Gold" || manualType == "Silver") ? 0m : 0m
         };
-
-        if (manualType == "Fund")
-        {
-            asset.AssetType = AssetType.Fund;
-        }
 
         await Database.SaveAssetAsync(asset);
         var created = (await Database.GetAssetByCodeAsync(asset.AssetCode))!;
@@ -836,16 +935,23 @@
         editingTransactionId = id;
         formOpen = true;
         entryMode = asset.AssetType == AssetType.Stock ? "stock" : "other";
-        manualType = asset.IsDailyAccrualFund ? "TCD" : asset.AssetType.ToString();
+        manualType = asset.IsDailyAccrualFund ? "TCD"
+            : asset.AssetType == AssetType.Gold ? "Gold"
+            : asset.AssetType == AssetType.Silver ? "Silver"
+            : asset.AssetType == AssetType.Fund ? "Fund"
+            : "Other";
         stockQuery = asset.AssetCode;
         assetCode = asset.AssetCode;
         assetName = asset.AssetName;
         transactionType = transaction.TransactionType.ToString();
+        dividendKind = transaction.DividendKind == DividendKind.Stock ? "Stock" : "Cash";
         transactionDate = transaction.TransactionDate;
         quantity = asset.IsDailyAccrualFund ? transaction.TotalAmount : transaction.Quantity;
-        dividendAmount = transaction.TransactionType == TransactionKind.Dividend ? transaction.NetAmount : null;
+        dividendAmount = transaction.TransactionType == TransactionKind.Dividend && transaction.DividendKind == DividendKind.Cash ? transaction.NetAmount : null;
+        freeSharesQuantity = transaction.TransactionType == TransactionKind.Dividend && transaction.DividendKind == DividendKind.Stock ? transaction.Quantity : null;
+        freeSharesMarketPrice = transaction.TransactionType == TransactionKind.Dividend && transaction.DividendKind == DividendKind.Stock ? transaction.PricePerUnit : null;
         pricePerUnit = transaction.PricePerUnit;
-            fees = transaction.Fees == 0 ? null : transaction.Fees;
+        fees = transaction.Fees == 0 ? null : transaction.Fees;
         manufacturingFeePerGram = transaction.ManufacturingFeePerGram == 0 ? null : transaction.ManufacturingFeePerGram;
         dailyAccrualAnnualRatePercent = null;
         EnsureTransactionTypeAllowed();
@@ -926,6 +1032,7 @@
         assetCode = string.Empty;
         assetName = string.Empty;
         transactionType = "Buy";
+        dividendKind = "Cash";
         transactionDate = DateTime.Today;
         quantity = null;
         pricePerUnit = null;
@@ -933,11 +1040,13 @@
         manufacturingFeePerGram = null;
         dailyAccrualAnnualRatePercent = null;
         dividendAmount = null;
+        freeSharesQuantity = null;
+        freeSharesMarketPrice = null;
         stockSuggestions.Clear();
         if (!keepMode)
         {
             entryMode = "stock";
-        manualType = "Gold";
+            manualType = "Fund";
         }
     }
 
@@ -954,16 +1063,26 @@
         }
     }
 
-    private string Money(decimal value) => Balance.HideBalances ? "••••••" : $"{value.ToString("N2")} ج.م";
     private string BalanceClass => Balance.HideBalances ? "balance-value is-hidden" : "balance-value";
     private string MoneyValue(decimal value) => $"{value.ToString("N2")} \u062c.\u0645";
-    private AssetType ManualSearchAssetType => manualType == "Gold" ? AssetType.Gold : manualType is "Fund" or "TCD" ? AssetType.Fund : AssetType.Other;
-    private static string CodeClass(Asset? asset) => asset?.IsDailyAccrualFund == true ? "cloud" : asset?.AssetType == AssetType.Gold ? "gold" : asset?.AssetType == AssetType.Fund ? "fund" : asset?.AssetType != AssetType.Stock ? "blue" : string.Empty;
+    private AssetType ManualSearchAssetType => manualType switch
+    {
+        "Gold" => AssetType.Gold,
+        "Silver" => AssetType.Silver,
+        "Fund" or "TCD" => AssetType.Fund,
+        _ => AssetType.Other
+    };
+    private static string CodeClass(Asset? asset) => asset?.IsDailyAccrualFund == true ? "cloud"
+        : asset?.AssetType == AssetType.Gold ? "gold"
+        : asset?.AssetType == AssetType.Silver ? "silver"
+        : asset?.AssetType == AssetType.Fund ? "fund"
+        : asset?.AssetType != AssetType.Stock ? "blue"
+        : string.Empty;
     private static string TransactionTypeLabel(InvestmentTransaction transaction, Asset? asset)
     {
         var isTcd = asset?.IsDailyAccrualFund == true;
         return transaction.TransactionType == TransactionKind.Dividend
-            ? "أرباح"
+            ? (transaction.DividendKind == DividendKind.Stock ? "أسهم مجانية" : "أرباح نقدية")
             : transaction.TransactionType == TransactionKind.Buy
             ? isTcd ? "إيداع" : "شراء"
             : isTcd ? "سحب" : "بيع";
@@ -984,6 +1103,3 @@
         Balance.Changed -= OnBalanceChanged;
     }
 }
-
-
-

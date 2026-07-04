@@ -25,10 +25,16 @@ public class LocalDatabase
 
     private static async Task EnsureAssetSchemaAsync(SQLiteAsyncConnection db)
     {
-        var columns = await db.QueryAsync<TableColumn>("PRAGMA table_info(Asset)");
-        if (!columns.Any(c => string.Equals(c.Name, nameof(Asset.ClosedRealizedPnL), StringComparison.OrdinalIgnoreCase)))
+        var assetColumns = await db.QueryAsync<TableColumn>("PRAGMA table_info(Asset)");
+        if (!assetColumns.Any(c => string.Equals(c.Name, nameof(Asset.ClosedRealizedPnL), StringComparison.OrdinalIgnoreCase)))
         {
             await db.ExecuteAsync($"ALTER TABLE Asset ADD COLUMN {nameof(Asset.ClosedRealizedPnL)} TEXT NOT NULL DEFAULT '0'");
+        }
+
+        var txColumns = await db.QueryAsync<TableColumn>("PRAGMA table_info(InvestmentTransaction)");
+        if (!txColumns.Any(c => string.Equals(c.Name, nameof(InvestmentTransaction.DividendKind), StringComparison.OrdinalIgnoreCase)))
+        {
+            await db.ExecuteAsync($"ALTER TABLE InvestmentTransaction ADD COLUMN {nameof(InvestmentTransaction.DividendKind)} INTEGER NOT NULL DEFAULT 0");
         }
     }
 
@@ -100,7 +106,11 @@ public class LocalDatabase
         asset.Currency = string.IsNullOrWhiteSpace(asset.Currency) ? "EGP" : asset.Currency.Trim().ToUpperInvariant();
         asset.ExternalTicker = string.IsNullOrWhiteSpace(asset.ExternalTicker) ? null : ToAscii(asset.ExternalTicker).Trim().ToUpperInvariant();
         asset.Notes = string.IsNullOrWhiteSpace(asset.Notes) ? null : asset.Notes.Trim();
-        asset.GoldCashbackPerGram = asset.AssetType == AssetType.Gold ? asset.GoldCashbackPerGram : 28.5m;
+        // Preserve cashback/manufacturing fee for precious metals (Gold & Silver); default 0 for others
+        if (asset.AssetType != AssetType.Gold && asset.AssetType != AssetType.Silver)
+        {
+            asset.GoldCashbackPerGram = 0m;
+        }
         asset.DailyAccrualAnnualRatePercent = asset.IsDailyAccrualFund && asset.DailyAccrualAnnualRatePercent > 0
             ? asset.DailyAccrualAnnualRatePercent
             : 16m;

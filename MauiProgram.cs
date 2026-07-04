@@ -1,5 +1,6 @@
 using Investy.Mobile.Services;
 using Microsoft.Extensions.Logging;
+using Plugin.LocalNotification;
 
 namespace Investy.Mobile;
 
@@ -12,6 +13,7 @@ public static class MauiProgram
         var builder = MauiApp.CreateBuilder();
         builder
             .UseMauiApp<App>()
+            .UseLocalNotification()
             .ConfigureFonts(fonts =>
             {
                 fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
@@ -25,6 +27,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<BalanceVisibilityService>();
         builder.Services.AddSingleton(new HttpClient { Timeout = TimeSpan.FromSeconds(30) });
         builder.Services.AddSingleton<EodhdMobileService>();
+        builder.Services.AddSingleton<NotificationSchedulerService>();
 
 #if DEBUG
         builder.Services.AddBlazorWebViewDeveloperTools();

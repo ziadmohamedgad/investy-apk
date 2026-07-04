@@ -7,7 +7,8 @@ public enum AssetType
     Stock,
     Gold,
     Fund,
-    Other
+    Other,
+    Silver
 }
 
 public enum TransactionKind
@@ -15,6 +16,12 @@ public enum TransactionKind
     Buy,
     Sell,
     Dividend
+}
+
+public enum DividendKind
+{
+    Cash = 0,
+    Stock = 1
 }
 
 public enum PriceSource
@@ -56,6 +63,8 @@ public class InvestmentTransaction
     public decimal Fees { get; set; }
     public decimal ManufacturingFeePerGram { get; set; }
     public decimal NetAmount { get; set; }
+    /// <summary>Applicable only when TransactionType == Dividend: Cash (default) or Stock (free shares).</summary>
+    public DividendKind DividendKind { get; set; } = DividendKind.Cash;
     public string? Notes { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
@@ -87,7 +96,9 @@ public record AssetSummary(
     decimal RealizedPnL,
     decimal RealizedPnLPercent,
     decimal TotalPnL,
-    decimal TotalPnLPercent);
+    decimal TotalPnLPercent,
+    /// <summary>For TCD (DailyAccrualFund): cumulative return including withdrawn amounts. Never decreases on withdrawal.</summary>
+    decimal TotalAccruedReturn);
 
 public record DashboardSummary(
     decimal TotalInvestedCapital,

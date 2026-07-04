@@ -3,9 +3,9 @@
 @inject LocalDatabase Database
 @inject PortfolioService Portfolio
 @inject EodhdMobileService Eodhd
-@inject ExportService Exporter
 @inject NavigationManager Nav
 @inject BalanceVisibilityService Balance
+@inject NotificationSchedulerService NotificationScheduler
 
 <PageTitle>لوحة التحكم</PageTitle>
 
@@ -13,10 +13,6 @@
     <div>
         <h1>لوحة التحكم</h1>
         <p>ملخص المحفظة حسب آخر أسعار محفوظة</p>
-        <div class="head-actions inline-actions">
-            <button class="ghost export-button" @onclick="ExportAsync" disabled="@busy">تصدير ملف</button>
-            <button class="primary" @onclick="SyncPricesAsync" disabled="@busy">مزامنة الأسعار</button>
-        </div>
     </div>
 </section>
 
@@ -106,6 +102,8 @@
 
         Balance.Changed += OnBalanceChanged;
         await ReloadAsync();
+        _ = CheckAutoSyncAsync();
+        _ = NotificationScheduler.ScheduleWorkdayNotificationsAsync();
     }
 
     private void OnBalanceChanged() => InvokeAsync(StateHasChanged);
@@ -115,6 +113,64 @@
         assets = await Database.GetAssetsAsync();
         holdings = await Portfolio.GetHoldingsAsync();
         RecalculateDashboard();
+    }
+
+    /// <summary>
+    /// Triggers an automatic price sync once per day when the app is opened after 8 PM Egypt time
+    /// on a workday (Sunday–Thursday). Uses Preferences to ensure it runs only once per calendar day.
+    /// </summary>
+    private async Task CheckAutoSyncAsync()
+    {
+        try
+        {
+            // Egypt time = UTC+3 (no DST)
+            var egyptNow = DateTime.UtcNow.AddHours(3);
+            var dayOfWeek = egyptNow.DayOfWeek;
+
+            // Only sync on working days and after 8 PM Egypt time
+            if (dayOfWeek == DayOfWeek.Friday || dayOfWeek == DayOfWeek.Saturday)
+                return;
+            if (egyptNow.Hour < 20)
+                return;
+
+            var todayKey = egyptNow.Date.ToString("yyyy-MM-dd");
+            var lastSynced = Preferences.Default.Get("last_auto_sync_date", string.Empty);
+            if (lastSynced == todayKey)
+                return; // Already auto-synced today
+
+            var stockAssets = assets.Where(a => a.AssetType == AssetType.Stock && !string.IsNullOrWhiteSpace(a.ExternalTicker)).ToList();
+            if (stockAssets.Count == 0)
+                return;
+
+            var synced = 0;
+            foreach (var asset in stockAssets)
+            {
+                var price = await Eodhd.FetchLatestPriceAsync(asset.ExternalTicker!);
+                if (price == null) continue;
+                await Database.SavePriceAsync(new AssetPrice
+                {
+                    AssetId = asset.AssetId,
+                    PriceDate = price.Value.Date.Date,
+                    PriceValue = price.Value.Price,
+                    Source = PriceSource.Eodhd
+                });
+                synced++;
+            }
+
+            // Save today's date so we don't repeat the sync
+            Preferences.Default.Set("last_auto_sync_date", todayKey);
+
+            if (synced > 0)
+            {
+                await ReloadAsync();
+                await InvokeAsync(StateHasChanged);
+                await ShowMessageAsync($"تم تحديث {synced} سعر تلقائياً.");
+            }
+        }
+        catch
+        {
+            // Auto-sync is best-effort; silently ignore errors
+        }
     }
 
     private void ToggleAsset(int assetId)
@@ -173,50 +229,7 @@
             0);
     }
 
-    private async Task SyncPricesAsync()
-    {
-        busy = true;
-        var synced = 0;
-        foreach (var asset in assets.Where(a => a.AssetType == AssetType.Stock && !string.IsNullOrWhiteSpace(a.ExternalTicker)))
-        {
-            var price = await Eodhd.FetchLatestPriceAsync(asset.ExternalTicker!);
-            if (price == null)
-            {
-                continue;
-            }
 
-            await Database.SavePriceAsync(new AssetPrice
-            {
-                AssetId = asset.AssetId,
-                PriceDate = price.Value.Date.Date,
-                PriceValue = price.Value.Price,
-                Source = PriceSource.Eodhd
-            });
-            synced++;
-        }
-
-        await ReloadAsync();
-        busy = false;
-        await ShowMessageAsync(synced == 0 ? "لم يتم تحديث أي سعر." : $"تم تحديث {synced} سعر.");
-    }
-
-    private async Task ExportAsync()
-    {
-        try
-        {
-            busy = true;
-            var path = await Exporter.ExportWorkbookAsync();
-            await ShowMessageAsync($"تم حفظ التصدير: {Path.GetFileName(path)}");
-        }
-        catch (Exception ex)
-        {
-            await ShowMessageAsync($"تعذر التصدير: {ex.Message}");
-        }
-        finally
-        {
-            busy = false;
-        }
-    }
 
     private async Task ShowMessageAsync(string text)
     {
@@ -236,11 +249,17 @@
     private string MoneyValue(decimal value) => $"{value.ToString("N2")} \u062c.\u0645";
     private string PercentValue(decimal value) => $"{value.ToString("N2")}%";
     private static string Tone(decimal value) => value > 0 ? "positive" : value < 0 ? "negative" : string.Empty;
-    private static string CodeClass(Asset asset) => asset.IsDailyAccrualFund ? "cloud" : asset.AssetType == AssetType.Gold ? "gold" : asset.AssetType == AssetType.Fund ? "fund" : asset.AssetType != AssetType.Stock ? "blue" : string.Empty;
+    private static string CodeClass(Asset asset) => asset.IsDailyAccrualFund ? "cloud"
+        : asset.AssetType == AssetType.Gold ? "gold"
+        : asset.AssetType == AssetType.Silver ? "silver"
+        : asset.AssetType == AssetType.Fund ? "fund"
+        : asset.AssetType != AssetType.Stock ? "blue"
+        : string.Empty;
     private static string AssetTypeToggleLabel(string type) => type switch
     {
         "Stock" => "الأسهم",
         "Gold" => "الذهب",
+        "Silver" => "الفضة",
         "Fund" => "الصناديق",
         "TCD" => "الكلاود",
         "Other" => "الأخرى",
@@ -251,9 +270,10 @@
     {
         "Stock" => 1,
         "Gold" => 2,
-        "Fund" => 3,
-        "TCD" => 4,
-        "Other" => 5,
+        "Silver" => 3,
+        "Fund" => 4,
+        "TCD" => 5,
+        "Other" => 6,
         _ => 99
     };
 
