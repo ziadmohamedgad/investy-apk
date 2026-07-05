@@ -41,7 +41,7 @@
         <span>الربح/الخسارة المحققة</span>
         <strong class="@($"{Tone(dashboard.TotalRealizedPnL)} {BalanceClass}")">@MoneyValue(dashboard.TotalRealizedPnL)</strong>
     </article>
-    <article class="summary-card" style="grid-column: 1 / -1;">
+    <article class="summary-card">
         <span>صافي الربح/الخسارة</span>
         <div style="display: flex; align-items: baseline; gap: 8px;">
             <strong class="@($"{Tone(dashboard.TotalPnL)} {BalanceClass}")">@MoneyValue(dashboard.TotalPnL)</strong>
