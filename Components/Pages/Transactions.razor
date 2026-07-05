@@ -446,7 +446,7 @@
         }
     }
     private bool CanSelectSell => CurrentAssetTransactionsExcludingEdit.Any(t => t.TransactionType == TransactionKind.Buy);
-    private bool CanSelectDividend => entryMode == "stock" && CurrentAssetTransactionsExcludingEdit.Any(t => t.TransactionType == TransactionKind.Buy);
+    private bool CanSelectDividend => (entryMode == "stock" || IsTcd) && CurrentAssetTransactionsExcludingEdit.Any(t => t.TransactionType == TransactionKind.Buy);
     private decimal AvailableSellAmount
     {
         get
