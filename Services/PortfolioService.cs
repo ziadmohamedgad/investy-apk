@@ -508,28 +508,19 @@ public class PortfolioService
         else if (effectiveDate.DayOfWeek == DayOfWeek.Saturday)
             effectiveDate = effectiveDate.AddDays(-2);   // → Thursday
 
-        if (effectiveDate <= anchorDate)
+        if (effectiveDate < anchorDate)
             return 1m;
 
-        // Count accrual days from anchorDate+1 to effectiveDate:
+        // Count accrual days from anchorDate to effectiveDate:
         //   Sunday–Wednesday: +1 each
         //   Thursday:         +3 (covers Thu + Fri + Sat)
         //   Friday, Saturday: +0 (pre-counted in Thursday)
         double accrualDays = 0;
-        for (var d = anchorDate.AddDays(1); d <= effectiveDate; d = d.AddDays(1))
+        for (var d = anchorDate; d <= effectiveDate; d = d.AddDays(1))
         {
-            switch (d.DayOfWeek)
-            {
-                case DayOfWeek.Friday:
-                case DayOfWeek.Saturday:
-                    break;
-                case DayOfWeek.Thursday:
-                    accrualDays += 3;
-                    break;
-                default:
-                    accrualDays += 1;
-                    break;
-            }
+            if (d.DayOfWeek == DayOfWeek.Thursday) accrualDays += 3;
+            else if (d.DayOfWeek == DayOfWeek.Friday || d.DayOfWeek == DayOfWeek.Saturday) accrualDays += 0;
+            else accrualDays += 1;
         }
 
         var dailyGrowth = Math.Pow(1d + (double)annualRate / 100d, accrualDays / 365.25d);
