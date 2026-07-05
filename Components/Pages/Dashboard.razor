@@ -30,19 +30,23 @@
         <span>إجمالي القيمة</span>
         <strong class="@BalanceClass">@MoneyValue(dashboard.TotalCurrentValue)</strong>
     </article>
-    <article class="summary-card" style="grid-column: 1 / -1;">
-        <span>صافي الربح/الخسارة</span>
-        <strong class="@($"{Tone(dashboard.TotalPnL)} {BalanceClass}")">@MoneyValue(dashboard.TotalPnL)</strong>
-        <small class="@($"{Tone(dashboard.TotalPnL)} {BalanceClass}")">@PercentValue(dashboard.PortfolioReturnSinceInception)</small>
-    </article>
     <article class="summary-card">
         <span>الربح/الخسارة غير المحققة</span>
-        <strong class="@($"{Tone(dashboard.TotalUnrealizedPnL)} {BalanceClass}")">@MoneyValue(dashboard.TotalUnrealizedPnL)</strong>
-        <small class="@($"{Tone(dashboard.TotalUnrealizedPnL)} {BalanceClass}")">@PercentValue(dashboard.TotalUnrealizedPnLPercent)</small>
+        <div style="display: flex; align-items: baseline; gap: 8px;">
+            <strong class="@($"{Tone(dashboard.TotalUnrealizedPnL)} {BalanceClass}")">@MoneyValue(dashboard.TotalUnrealizedPnL)</strong>
+            <small class="@($"{Tone(dashboard.TotalUnrealizedPnL)} {BalanceClass}")" style="font-size: 0.8rem;">@PercentValue(dashboard.TotalUnrealizedPnLPercent)</small>
+        </div>
     </article>
     <article class="summary-card">
         <span>الربح/الخسارة المحققة</span>
         <strong class="@($"{Tone(dashboard.TotalRealizedPnL)} {BalanceClass}")">@MoneyValue(dashboard.TotalRealizedPnL)</strong>
+    </article>
+    <article class="summary-card" style="grid-column: 1 / -1;">
+        <span>صافي الربح/الخسارة</span>
+        <div style="display: flex; align-items: baseline; gap: 8px;">
+            <strong class="@($"{Tone(dashboard.TotalPnL)} {BalanceClass}")">@MoneyValue(dashboard.TotalPnL)</strong>
+            <small class="@($"{Tone(dashboard.TotalPnL)} {BalanceClass}")" style="font-size: 0.8rem;">@PercentValue(dashboard.PortfolioReturnSinceInception)</small>
+        </div>
     </article>
 </section>
 
