@@ -44,6 +44,17 @@
                 window.getSelection?.().removeAllRanges();
             }
         }, { passive: true });
+
+        window.investyVisibilityRef = null;
+        window.investyRegisterVisibility = (dotNetRef) => {
+            window.investyVisibilityRef = dotNetRef;
+        };
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible' && window.investyVisibilityRef) {
+                window.investyVisibilityRef.invokeMethodAsync('OnAppResumedAsync');
+            }
+        });
+
         const assetCodeSelector = '[data-asset-code-input="true"]';
         const isAssetCodeValue = (value) => /^[A-Za-z]*$/.test(value ?? '');
 

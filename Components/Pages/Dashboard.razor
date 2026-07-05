@@ -6,6 +6,7 @@
 @inject NavigationManager Nav
 @inject BalanceVisibilityService Balance
 @inject NotificationSchedulerService NotificationScheduler
+@inject IJSRuntime JS
 
 <PageTitle>لوحة التحكم</PageTitle>
 
@@ -93,6 +94,7 @@
     private readonly HashSet<int> excludedAssetIds = new();
     private string? message;
     private bool busy;
+    private DotNetObjectReference<Dashboard>? dotNetRef;
 
     private List<AssetSummary> IncludedHoldings => holdings.Where(h => !excludedAssetIds.Contains(h.Asset.AssetId)).ToList();
     private List<AssetTypeFilter> AssetTypeFilters => holdings
@@ -110,6 +112,10 @@
         }
 
         Balance.Changed += OnBalanceChanged;
+        
+        dotNetRef = DotNetObjectReference.Create(this);
+        await JS.InvokeVoidAsync("investyRegisterVisibility", dotNetRef);
+
         await ReloadAsync();
         _ = CheckAutoSyncAsync();
         _ = NotificationScheduler.ScheduleWorkdayNotificationsAsync();
@@ -122,6 +128,14 @@
         assets = await Database.GetAssetsAsync();
         holdings = await Portfolio.GetHoldingsAsync();
         RecalculateDashboard();
+    }
+
+    [JSInvokable]
+    public async Task OnAppResumedAsync()
+    {
+        await ReloadAsync(); // Update Thndr Cloud and other real-time data
+        await InvokeAsync(StateHasChanged);
+        await CheckAutoSyncAsync(); // Check if we need to auto-sync stocks
     }
 
     /// <summary>
@@ -288,6 +302,7 @@
     public void Dispose()
     {
         Balance.Changed -= OnBalanceChanged;
+        dotNetRef?.Dispose();
     }
 }
 
