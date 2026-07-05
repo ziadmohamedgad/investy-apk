@@ -91,7 +91,7 @@
                     <option value="Sell" disabled="@(!CanSelectSell)">@(IsTcd ? "سحب" : "بيع")</option>
                     @if (entryMode == "stock" || IsTcd)
                     {
-                        <option value="Dividend" disabled="@(!CanSelectDividend)">@(IsTcd ? "عائد محقق" : "أرباح")</option>
+                        <option value="Dividend" disabled="@(!CanSelectDividend)">@(IsTcd ? "عائد قديم" : "أرباح")</option>
                     }
                 </select>
                 @if (transactionType == "Sell" && !CanSelectSell)
@@ -131,7 +131,7 @@
             @if (IsDividend && dividendKind == "Cash")
             {
                 <label>
-                    @(IsTcd ? "مبلغ العائد" : "الربح النقدي")
+                    @(IsTcd ? "المبلغ" : "الربح النقدي")
                     <input class="field" type="number" step="0.01" min="0" @bind="dividendAmount" @bind:event="oninput" />
                     @if (DividendInvalid)
                     {
@@ -268,7 +268,7 @@
                             else
                             {
                                 @* Cash dividend *@
-                                <span>@(isTcdTx ? "عائد محقق" : "الصافي") <b class="@BalanceClass">@MoneyValue(transaction.NetAmount)</b></span>
+                                <span>@(isTcdTx ? "عائد قديم" : "الصافي") <b class="@BalanceClass">@MoneyValue(transaction.NetAmount)</b></span>
                             }
                         </span>
                     }
@@ -1123,7 +1123,7 @@
     {
         var isTcd = asset?.IsDailyAccrualFund == true;
         return transaction.TransactionType == TransactionKind.Dividend
-            ? (transaction.DividendKind == DividendKind.Stock ? "أسهم مجانية" : (isTcd ? "عائد محقق" : "أرباح نقدية"))
+            ? (transaction.DividendKind == DividendKind.Stock ? "أسهم مجانية" : (isTcd ? "عائد قديم" : "أرباح نقدية"))
             : transaction.TransactionType == TransactionKind.Buy
             ? isTcd ? "إيداع" : "شراء"
             : isTcd ? "سحب" : "بيع";
