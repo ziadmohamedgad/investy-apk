@@ -178,7 +178,7 @@ public class PortfolioService
             {
                 if (!hasBuy)
                 {
-                    throw new InvalidOperationException("لا يمكن تسجيل أرباح قبل وجود عملية شراء سابقة للسهم.");
+                    throw new InvalidOperationException("لا يمكن تسجيل أرباح قبل وجود عملية شراء سابقة لهذا الأصل.");
                 }
 
                 // Stock dividends add free shares to units held

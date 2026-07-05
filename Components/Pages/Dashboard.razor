@@ -31,7 +31,7 @@
         <strong class="@BalanceClass">@MoneyValue(dashboard.TotalCurrentValue)</strong>
     </article>
     <article class="summary-card" style="grid-column: 1 / -1;">
-        <span>صافي الربح العام</span>
+        <span>صافي الربح/الخسارة</span>
         <strong class="@($"{Tone(dashboard.TotalPnL)} {BalanceClass}")">@MoneyValue(dashboard.TotalPnL)</strong>
         <small class="@($"{Tone(dashboard.TotalPnL)} {BalanceClass}")">@PercentValue(dashboard.PortfolioReturnSinceInception)</small>
     </article>
