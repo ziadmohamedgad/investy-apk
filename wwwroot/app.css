@@ -512,7 +512,7 @@ small,
 
 .summary-grid {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: 1fr;
     gap: 12px;
     margin-bottom: 14px;
 }
@@ -544,10 +544,12 @@ small,
 
 .summary-card {
     position: relative;
-    display: grid;
-    align-content: start;
-    gap: 8px;
-    min-height: 112px;
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    min-height: 72px;
     padding: 16px;
     overflow: hidden;
 }
