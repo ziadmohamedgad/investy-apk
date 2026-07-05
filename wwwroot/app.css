@@ -545,9 +545,9 @@ small,
     display: flex;
     flex-direction: column;
     justify-content: center;
-    gap: 6px;
-    min-height: 86px;
-    padding: 16px;
+    gap: 4px;
+    min-height: 72px;
+    padding: 12px 16px;
     overflow: hidden;
 }
 
