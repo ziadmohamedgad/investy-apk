@@ -109,7 +109,10 @@ public record DashboardSummary(
     decimal TotalFeesPaid,
     decimal PortfolioReturnSinceInception,
     int AssetCount,
-    int TransactionCount);
+    int TransactionCount)
+{
+    public decimal TotalPnL => TotalUnrealizedPnL + TotalRealizedPnL;
+}
 
 public record StockSearchResult(string Code, string Name, string Currency, string ExternalTicker);
 
