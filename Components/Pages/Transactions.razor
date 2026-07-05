@@ -89,9 +89,9 @@
                 <select class="field" @bind="transactionType">
                     <option value="Buy">@(IsTcd ? "إيداع" : "شراء")</option>
                     <option value="Sell" disabled="@(!CanSelectSell)">@(IsTcd ? "سحب" : "بيع")</option>
-                    @if (entryMode == "stock")
+                    @if (entryMode == "stock" || IsTcd)
                     {
-                        <option value="Dividend" disabled="@(!CanSelectDividend)">أرباح</option>
+                        <option value="Dividend" disabled="@(!CanSelectDividend)">@(IsTcd ? "عائد محقق" : "أرباح")</option>
                     }
                 </select>
                 @if (transactionType == "Sell" && !CanSelectSell)
@@ -100,12 +100,12 @@
                 }
                 @if (transactionType == "Dividend" && !CanSelectDividend)
                 {
-                    <small class="field-hint">الأرباح متاحة بعد وجود عملية شراء سابقة للسهم.</small>
+                    <small class="field-hint">@(IsTcd ? "العوائد متاحة بعد وجود إيداع سابق." : "الأرباح متاحة بعد وجود عملية شراء سابقة للسهم.")</small>
                 }
             </label>
 
             @* Dividend sub-type: Cash or Stock *@
-            @if (IsDividend)
+            @if (IsDividend && !IsTcd)
             {
                 <label>
                     نوع الربح
@@ -116,7 +116,7 @@
                 </label>
             }
 
-            @if (!IsTcd)
+            @if (!IsTcd || IsDividend)
             {
                 <label>
                     التاريخ
@@ -131,8 +131,8 @@
             @if (IsDividend && dividendKind == "Cash")
             {
                 <label>
-                    الربح النقدي
-                    <input class="field" type="number" step="0.01" min="0" @bind="dividendAmount" @bind:event="onchange" />
+                    @(IsTcd ? "مبلغ العائد" : "الربح النقدي")
+                    <input class="field" type="number" step="0.01" min="0" @bind="dividendAmount" @bind:event="oninput" />
                     @if (DividendInvalid)
                     {
                         <small class="field-hint is-error">الربح يجب أن يكون أكبر من صفر.</small>
@@ -143,7 +143,7 @@
             {
                 <label>
                     عدد الأسهم المجانية لكل سهم ممتلك
-                    <input class="field" type="number" step="0.0001" min="0" @bind="freeSharesQuantity" @bind:event="onchange" />
+                    <input class="field" type="number" step="0.0001" min="0" @bind="freeSharesQuantity" @bind:event="oninput" />
                     @if (FreeSharesInvalid)
                     {
                         <small class="field-hint is-error">العدد يجب أن يكون أكبر من صفر.</small>
@@ -154,7 +154,7 @@
             {
                 <label>
                     @(IsGoldOrSilver ? "عدد الجرامات" : IsTcd ? "المبلغ" : "الوحدات")
-                    <input class="field" type="number" step="0.01" max="@AvailableSellMaxAttribute" @bind="quantity" @bind:event="onchange" />
+                    <input class="field" type="number" step="0.01" max="@AvailableSellMaxAttribute" @bind="quantity" @bind:event="oninput" />
                     @if (transactionType == "Sell" && CanSelectSell)
                     {
                         <small class="field-hint">المتاح: @AvailableSellLabel</small>
@@ -170,7 +170,7 @@
             {
                 <label>
                     النسبة السنوية
-                    <input class="field" type="number" step="0.01" min="0" @bind="dailyAccrualAnnualRatePercent" @bind:event="onchange" />
+                    <input class="field" type="number" step="0.01" min="0" @bind="dailyAccrualAnnualRatePercent" @bind:event="oninput" />
                     @if (TcdExistingRate.HasValue)
                     {
                         <small class="field-hint">الحالية: @TcdExistingRate.Value.ToString("N2")%</small>
@@ -180,26 +180,33 @@
                         <small class="field-hint is-error">النسبة السنوية مطلوبة عند إضافة صندوق ثاندر كلاود لأول مرة.</small>
                     }
                 </label>
+                @if (CurrentFormAsset == null || !TcdExistingRate.HasValue)
+                {
+                    <label>
+                        عوائد سابقة متراكمة (اختياري)
+                        <input class="field" type="number" step="0.01" min="0" @bind="tcdOldRealizedReturns" @bind:event="oninput" />
+                    </label>
+                }
             }
             @if (!IsTcd && !IsDividend)
             {
                 <label>
                     @(IsGoldOrSilver ? "السعر للجرام" : "السعر للوحدة")
-                    <input class="field" type="number" step="0.00001" @bind="pricePerUnit" @bind:event="onchange" />
+                    <input class="field" type="number" step="0.00001" @bind="pricePerUnit" @bind:event="oninput" />
                 </label>
             }
             @if (IsGoldOrSilver)
             {
                 <label>
                     @(transactionType == "Buy" ? "المصنعية للجرام" : "الكاش باك للجرام")
-                    <input class="field" type="number" step="0.00001" @bind="manufacturingFeePerGram" @bind:event="onchange" />
+                    <input class="field" type="number" step="0.00001" @bind="manufacturingFeePerGram" @bind:event="oninput" />
                 </label>
             }
             @if (!IsTcd && !IsDividend)
             {
                 <label>
                     الرسوم
-                    <input class="field" type="number" step="0.00001" @bind="fees" @bind:event="onchange" />
+                    <input class="field" type="number" step="0.00001" @bind="fees" @bind:event="oninput" />
                 </label>
             }
             @if (!IsDividend)
@@ -261,7 +268,7 @@
                             else
                             {
                                 @* Cash dividend *@
-                                <span>الصافي <b class="@BalanceClass">@MoneyValue(transaction.NetAmount)</b></span>
+                                <span>@(isTcdTx ? "عائد محقق" : "الصافي") <b class="@BalanceClass">@MoneyValue(transaction.NetAmount)</b></span>
                             }
                         </span>
                     }
@@ -329,6 +336,7 @@
     private decimal? dividendAmount;
     private decimal? freeSharesQuantity;
     private decimal? freeSharesMarketPrice;
+    private decimal? tcdOldRealizedReturns;
 
     private bool IsGold => entryMode == "other" && manualType == "Gold";
     private bool IsSilver => entryMode == "other" && manualType == "Silver";
@@ -743,6 +751,22 @@
                 resolvedDividendKind);
             await Database.SaveTransactionAsync(transaction);
 
+            if (IsTcd && transactionType == "Buy" && tcdOldRealizedReturns.HasValue && tcdOldRealizedReturns.Value > 0)
+            {
+                var dividendTransaction = await Portfolio.BuildTransactionAsync(
+                    asset,
+                    TransactionKind.Dividend,
+                    transactionDate,
+                    tcdOldRealizedReturns.Value,
+                    0m,
+                    0m,
+                    0m,
+                    null,
+                    0,
+                    DividendKind.Cash);
+                await Database.SaveTransactionAsync(dividendTransaction);
+            }
+
             if (!editingTransactionId.HasValue && entryMode == "other" && !asset.IsDailyAccrualFund && (pricePerUnit ?? 0m) > 0)
             {
                 await Database.SavePriceAsync(new AssetPrice
@@ -763,8 +787,8 @@
             CloseForm();
             await ReloadAsync();
 
-            // Scroll to top of transactions list so user can see the newly added transaction
-            await JS.InvokeVoidAsync("investyScrollTo", "transactions-list-start");
+            // Removed scroll to bottom as requested
+            // await JS.InvokeVoidAsync("investyScrollTo", "transactions-list-start");
 
             await ShowMessageAsync(wasEditing ? "تم تعديل العملية." : "تم إجراء العملية.");
         }
@@ -1051,6 +1075,7 @@
         dividendAmount = null;
         freeSharesQuantity = null;
         freeSharesMarketPrice = null;
+        tcdOldRealizedReturns = null;
         stockSuggestions.Clear();
         if (!keepMode)
         {
@@ -1098,7 +1123,7 @@
     {
         var isTcd = asset?.IsDailyAccrualFund == true;
         return transaction.TransactionType == TransactionKind.Dividend
-            ? (transaction.DividendKind == DividendKind.Stock ? "أسهم مجانية" : "أرباح نقدية")
+            ? (transaction.DividendKind == DividendKind.Stock ? "أسهم مجانية" : (isTcd ? "عائد محقق" : "أرباح نقدية"))
             : transaction.TransactionType == TransactionKind.Buy
             ? isTcd ? "إيداع" : "شراء"
             : isTcd ? "سحب" : "بيع";

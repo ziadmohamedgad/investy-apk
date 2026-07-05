@@ -87,9 +87,9 @@ public class PortfolioService
 
         EnsureNotFutureDate(transactionDate);
 
-        if (kind == TransactionKind.Dividend && asset.AssetType != AssetType.Stock)
+        if (kind == TransactionKind.Dividend && asset.AssetType != AssetType.Stock && !asset.IsDailyAccrualFund)
         {
-            throw new InvalidOperationException("أرباح الأسهم متاحة للأصول من نوع سهم فقط.");
+            throw new InvalidOperationException("أرباح الأسهم متاحة للأصول من نوع سهم أو صندوق يومي التراكم فقط.");
         }
 
         if (!asset.IsDailyAccrualFund && pricePerUnit < 0)
@@ -321,6 +321,10 @@ public class PortfolioService
                 totalWithdrawnNet += transaction.NetAmount;
                 realizedPnL += saleProceeds - soldCostBasis;
                 unitsHeld -= units;
+            }
+            else if (transaction.TransactionType == TransactionKind.Dividend)
+            {
+                realizedPnL += transaction.NetAmount;
             }
         }
 
