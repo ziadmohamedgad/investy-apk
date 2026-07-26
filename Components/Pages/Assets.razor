@@ -224,15 +224,16 @@
             return;
         }
 
-        // Guard: on working days (Sun-Thu Cairo time), reject stale EODHD prices
+        // Guard: on working days before 8 PM Cairo time, reject stale EODHD prices
         var cairoZone = TimeZoneInfo.FindSystemTimeZoneById("Egypt Standard Time");
         var cairoNow = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, cairoZone);
         var todayCairo = cairoNow.Date;
         bool isWeekend = cairoNow.DayOfWeek == DayOfWeek.Friday || cairoNow.DayOfWeek == DayOfWeek.Saturday;
+        bool isBeforeEightPM = cairoNow.Hour < 20;
 
-        if (!isWeekend && price.Value.Date.Date < todayCairo)
+        if (!isWeekend && isBeforeEightPM && price.Value.Date.Date < todayCairo)
         {
-            await ShowMessageAsync("يرجى الانتظار حتى السابعة مساءً والمحاولة مرة أخرى للحصول على السعر الجديد", isError: true);
+            await ShowMessageAsync("يرجى الانتظار حتى الثامنة مساءً والمحاولة مرة أخرى للحصول على السعر الجديد", isError: true);
             return;
         }
 

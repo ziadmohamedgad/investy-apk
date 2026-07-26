@@ -109,6 +109,7 @@
         var cairoNow = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, cairoZone);
         var todayCairo = cairoNow.Date;
         bool isWeekend = cairoNow.DayOfWeek == DayOfWeek.Friday || cairoNow.DayOfWeek == DayOfWeek.Saturday;
+        bool isBeforeEightPM = cairoNow.Hour < 20;
 
         foreach (var asset in assets.Where(a => a.AssetType == AssetType.Stock && !string.IsNullOrWhiteSpace(a.ExternalTicker)))
         {
@@ -116,8 +117,8 @@
             if (price == null)
                 continue;
 
-            // On working days: skip assets whose EODHD price hasn't updated for today yet
-            if (!isWeekend && price.Value.Date.Date < todayCairo)
+            // On working days before 8 PM: skip assets whose EODHD price hasn't updated for today yet
+            if (!isWeekend && isBeforeEightPM && price.Value.Date.Date < todayCairo)
             {
                 skipped++;
                 continue;
@@ -136,7 +137,7 @@
         busy = false;
 
         if (synced == 0 && skipped > 0)
-            await ShowMessageAsync("يرجى الانتظار حتى السابعة مساءً والمحاولة مرة أخرى للحصول على السعر الجديد", isError: true);
+            await ShowMessageAsync("يرجى الانتظار حتى الثامنة مساءً والمحاولة مرة أخرى للحصول على السعر الجديد", isError: true);
         else if (synced == 0)
             await ShowMessageAsync("لم يتم تحديث أي سعر.");
         else
