@@ -166,10 +166,21 @@
                 return;
 
             var synced = 0;
+            bool isFirstAsset = true;
             foreach (var asset in stockAssets)
             {
                 var price = await Eodhd.FetchLatestPriceAsync(asset.ExternalTicker!);
                 if (price == null) continue;
+
+                // On the first asset: if EODHD price is still stale, stop the loop entirely
+                // (Don't mark today as synced so it retries on next app open)
+                if (isFirstAsset)
+                {
+                    isFirstAsset = false;
+                    if (price.Value.Date.Date < egyptNow.Date)
+                        break;
+                }
+
                 await Database.SavePriceAsync(new AssetPrice
                 {
                     AssetId = asset.AssetId,
@@ -180,15 +191,15 @@
                 synced++;
             }
 
+            if (synced == 0)
+                return; // Either stale or no prices fetched — don't mark today as synced
+
             // Save today's date so we don't repeat the sync
             Preferences.Default.Set("last_auto_sync_date", todayKey);
 
-            if (synced > 0)
-            {
-                await ReloadAsync();
-                await InvokeAsync(StateHasChanged);
-                await ShowMessageAsync($"تم تحديث {synced} سعر تلقائياً.");
-            }
+            await ReloadAsync();
+            await InvokeAsync(StateHasChanged);
+            await ShowMessageAsync($"تم تحديث {synced} سعر تلقائياً.");
         }
         catch
         {
