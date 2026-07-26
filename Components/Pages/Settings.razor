@@ -103,11 +103,23 @@
     {
         busy = true;
         var synced = 0;
+        var skipped = 0;
+
+        var cairoZone = TimeZoneInfo.FindSystemTimeZoneById("Egypt Standard Time");
+        var cairoNow = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, cairoZone);
+        var todayCairo = cairoNow.Date;
+        bool isWeekend = cairoNow.DayOfWeek == DayOfWeek.Friday || cairoNow.DayOfWeek == DayOfWeek.Saturday;
+
         foreach (var asset in assets.Where(a => a.AssetType == AssetType.Stock && !string.IsNullOrWhiteSpace(a.ExternalTicker)))
         {
             var price = await Eodhd.FetchLatestPriceAsync(asset.ExternalTicker!);
             if (price == null)
+                continue;
+
+            // On working days: skip assets whose EODHD price hasn't updated for today yet
+            if (!isWeekend && price.Value.Date.Date < todayCairo)
             {
+                skipped++;
                 continue;
             }
 
@@ -122,7 +134,13 @@
         }
 
         busy = false;
-        await ShowMessageAsync(synced == 0 ? "لم يتم تحديث أي سعر." : $"تم تحديث {synced} سعر.");
+
+        if (synced == 0 && skipped > 0)
+            await ShowMessageAsync("يرجى الانتظار حتى السابعة مساءً والمحاولة مرة أخرى للحصول على السعر الجديد", isError: true);
+        else if (synced == 0)
+            await ShowMessageAsync("لم يتم تحديث أي سعر.");
+        else
+            await ShowMessageAsync($"تم تحديث {synced} سعر.");
     }
 
     private async Task ExportAsync()
