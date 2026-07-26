@@ -184,11 +184,15 @@
         Nav.NavigateTo("/", replace: true);
     }
 
-    private async Task ShowMessageAsync(string text)
+    private async Task ShowMessageAsync(string text, bool isError = false)
     {
         message = text;
+        if (isError)
+        {
+            // Optional: You could set a different class or styling for errors if desired
+        }
         StateHasChanged();
-        await Task.Delay(1750);
+        await Task.Delay(3000);
         if (message == text)
         {
             message = null;

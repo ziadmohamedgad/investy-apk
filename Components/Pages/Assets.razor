@@ -324,16 +324,17 @@
         return string.Join(" ", words).Trim();
     }
 
-    private async Task ShowMessageAsync(string text)
+    private async Task ShowMessageAsync(string text, bool isError = false)
     {
         message = text;
-        StateHasChanged();
-        await Task.Delay(1750);
-        if (message == text)
+        if (isError)
         {
-            message = null;
-            await InvokeAsync(StateHasChanged);
+            // Optional: You could set a different class or styling for errors if desired
         }
+        await InvokeAsync(StateHasChanged);
+        await Task.Delay(3000);
+        message = string.Empty;
+        await InvokeAsync(StateHasChanged);
     }
 
     public void Dispose()
