@@ -161,15 +161,20 @@
             if (lastSynced == todayKey)
                 return; // Already auto-synced today
 
-            var stockAssets = assets.Where(a => a.AssetType == AssetType.Stock && !string.IsNullOrWhiteSpace(a.ExternalTicker)).ToList();
-            if (stockAssets.Count == 0)
+            // Only sync OPEN (non-closed) positions — closed positions have 0 units left
+            var stockHoldings = holdings
+                .Where(h => !h.IsClosedPosition
+                         && h.Asset.AssetType == AssetType.Stock
+                         && !string.IsNullOrWhiteSpace(h.Asset.ExternalTicker))
+                .ToList();
+            if (stockHoldings.Count == 0)
                 return;
 
             var synced = 0;
             bool isFirstAsset = true;
-            foreach (var asset in stockAssets)
+            foreach (var holding in stockHoldings)
             {
-                var price = await Eodhd.FetchLatestPriceAsync(asset.ExternalTicker!);
+                var price = await Eodhd.FetchLatestPriceAsync(holding.Asset.ExternalTicker!);
                 if (price == null) continue;
 
                 // On the first asset: if EODHD price is still stale, stop the loop entirely
@@ -183,7 +188,7 @@
 
                 await Database.SavePriceAsync(new AssetPrice
                 {
-                    AssetId = asset.AssetId,
+                    AssetId = holding.Asset.AssetId,
                     PriceDate = price.Value.Date.Date,
                     PriceValue = price.Value.Price,
                     Source = PriceSource.Eodhd

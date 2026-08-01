@@ -111,9 +111,16 @@
         bool isBeforeEightPM = cairoNow.Hour < 20;
         bool staleDetected = false;
 
-        foreach (var asset in assets.Where(a => a.AssetType == AssetType.Stock && !string.IsNullOrWhiteSpace(a.ExternalTicker)))
+        // Only sync OPEN (non-closed) positions — closed positions have 0 units left
+        var openStockHoldings = (await Portfolio.GetHoldingsAsync())
+            .Where(h => !h.IsClosedPosition
+                     && h.Asset.AssetType == AssetType.Stock
+                     && !string.IsNullOrWhiteSpace(h.Asset.ExternalTicker))
+            .ToList();
+
+        foreach (var holding in openStockHoldings)
         {
-            var price = await Eodhd.FetchLatestPriceAsync(asset.ExternalTicker!);
+            var price = await Eodhd.FetchLatestPriceAsync(holding.Asset.ExternalTicker!);
             if (price == null)
                 continue;
 
@@ -126,7 +133,7 @@
 
             await Database.SavePriceAsync(new AssetPrice
             {
-                AssetId = asset.AssetId,
+                AssetId = holding.Asset.AssetId,
                 PriceDate = price.Value.Date.Date,
                 PriceValue = price.Value.Price,
                 Source = PriceSource.Eodhd
