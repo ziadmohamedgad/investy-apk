@@ -142,8 +142,8 @@
             else if (IsDividend && dividendKind == "Stock")
             {
                 <label>
-                    عدد الأسهم المجانية لكل سهم ممتلك
-                    <input class="field" type="number" step="0.0001" min="0" @bind="freeSharesQuantity" @bind:event="oninput" />
+                    إجمالي عدد الأسهم المجانية
+                    <input class="field" type="number" step="1" min="0" @bind="freeSharesQuantity" @bind:event="oninput" />
                     @if (FreeSharesInvalid)
                     {
                         <small class="field-hint is-error">العدد يجب أن يكون أكبر من صفر.</small>
@@ -709,20 +709,8 @@
                 if (dividendKind == "Stock")
                 {
                     resolvedDividendKind = DividendKind.Stock;
-                    
-                    var summary = holdings.FirstOrDefault(h => h.Asset.AssetId == asset.AssetId);
-                    decimal baseUnits = summary?.TotalUnitsHeld ?? 0m;
-                    if (editingTransactionId.HasValue)
-                    {
-                        var oldTx = transactions.FirstOrDefault(t => t.TransactionId == editingTransactionId.Value);
-                        if (oldTx != null && oldTx.TransactionType == TransactionKind.Dividend && oldTx.DividendKind == DividendKind.Stock)
-                        {
-                            baseUnits -= oldTx.Quantity;
-                        }
-                    }
-
-                    decimal ratio = freeSharesQuantity ?? 0m;
-                    transactionAmount = ratio * baseUnits;
+                    // User enters total free shares directly — no ratio calculation needed
+                    transactionAmount = freeSharesQuantity ?? 0m;
                     resolvedPrice = 0m;
                 }
                 else
@@ -979,8 +967,9 @@
         transactionDate = transaction.TransactionDate;
         quantity = asset.IsDailyAccrualFund ? transaction.TotalAmount : transaction.Quantity;
         dividendAmount = transaction.TransactionType == TransactionKind.Dividend && transaction.DividendKind == DividendKind.Cash ? transaction.NetAmount : null;
-        freeSharesQuantity = transaction.TransactionType == TransactionKind.Dividend && transaction.DividendKind == DividendKind.Stock 
-            ? transaction.Quantity / Math.Max(1m, (holdings.FirstOrDefault(h => h.Asset.AssetId == transaction.AssetId)?.TotalUnitsHeld ?? 1m) - transaction.Quantity) 
+        // Load stored total free shares directly — no back-calculation needed
+        freeSharesQuantity = transaction.TransactionType == TransactionKind.Dividend && transaction.DividendKind == DividendKind.Stock
+            ? transaction.Quantity
             : null;
         freeSharesMarketPrice = null;
         pricePerUnit = transaction.PricePerUnit;
