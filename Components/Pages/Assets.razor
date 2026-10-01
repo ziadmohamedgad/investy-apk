@@ -224,19 +224,6 @@
             return;
         }
 
-        // Guard: on working days before 8 PM Cairo time, reject stale EODHD prices
-        var cairoZone = TimeZoneInfo.FindSystemTimeZoneById("Egypt Standard Time");
-        var cairoNow = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, cairoZone);
-        var todayCairo = cairoNow.Date;
-        bool isWeekend = cairoNow.DayOfWeek == DayOfWeek.Friday || cairoNow.DayOfWeek == DayOfWeek.Saturday;
-        bool isBeforeEightPM = cairoNow.Hour < 20;
-
-        if (!isWeekend && isBeforeEightPM && price.Value.Date.Date < todayCairo)
-        {
-            await ShowMessageAsync("يرجى الانتظار حتى الثامنة مساءً والمحاولة مرة أخرى للحصول على السعر الجديد", isError: true);
-            return;
-        }
-
         await Database.SavePriceAsync(new AssetPrice
         {
             AssetId = asset.AssetId,
@@ -245,7 +232,13 @@
             Source = PriceSource.Eodhd
         });
         await ReloadAsync();
-        await ShowMessageAsync($"تم تحديث سعر {asset.AssetCode}.");
+
+        var cairoToday = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow,
+            TimeZoneInfo.FindSystemTimeZoneById("Egypt Standard Time")).Date;
+        var dateLabel = price.Value.Date.Date == cairoToday
+            ? "تاريخ اليوم"
+            : price.Value.Date.Date.ToString("dddd d/M/yyyy", new System.Globalization.CultureInfo("ar-EG"));
+        await ShowMessageAsync($"تم مزامنة سعر {asset.AssetCode} حتى {dateLabel}.");
     }
 
     private void RequestDeleteAsset(int id)

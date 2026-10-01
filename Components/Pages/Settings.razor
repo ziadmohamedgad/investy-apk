@@ -105,11 +105,8 @@
         var synced = 0;
 
         var cairoZone = TimeZoneInfo.FindSystemTimeZoneById("Egypt Standard Time");
-        var cairoNow = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, cairoZone);
-        var todayCairo = cairoNow.Date;
-        bool isWeekend = cairoNow.DayOfWeek == DayOfWeek.Friday || cairoNow.DayOfWeek == DayOfWeek.Saturday;
-        bool isBeforeEightPM = cairoNow.Hour < 20;
-        bool staleDetected = false;
+        var todayCairo = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, cairoZone).Date;
+        DateTime? latestSyncedDate = null;
 
         // Only sync OPEN (non-closed) positions — closed positions have 0 units left
         var openStockHoldings = (await Portfolio.GetHoldingsAsync())
@@ -124,13 +121,6 @@
             if (price == null)
                 continue;
 
-            // On working days before 8 PM: stop loop immediately on first stale price
-            if (!isWeekend && isBeforeEightPM && price.Value.Date.Date < todayCairo)
-            {
-                staleDetected = true;
-                break;
-            }
-
             await Database.SavePriceAsync(new AssetPrice
             {
                 AssetId = holding.Asset.AssetId,
@@ -139,16 +129,19 @@
                 Source = PriceSource.Eodhd
             });
             synced++;
+
+            if (latestSyncedDate == null || price.Value.Date.Date > latestSyncedDate)
+                latestSyncedDate = price.Value.Date.Date;
         }
 
         busy = false;
 
-        if (staleDetected)
-            await ShowMessageAsync("يرجى الانتظار حتى الثامنة مساءً والمحاولة مرة أخرى للحصول على السعر الجديد", isError: true);
-        else if (synced == 0)
+        if (synced == 0)
             await ShowMessageAsync("لم يتم تحديث أي سعر.");
+        else if (latestSyncedDate?.Date == todayCairo)
+            await ShowMessageAsync($"تم مزامنة الأسعار حتى تاريخ اليوم.");
         else
-            await ShowMessageAsync($"تم تحديث {synced} سعر.");
+            await ShowMessageAsync($"تم مزامنة الأسعار حتى {latestSyncedDate?.ToString("dddd d/M/yyyy", new System.Globalization.CultureInfo("ar-EG"))}.");
     }
 
     private async Task ExportAsync()

@@ -171,20 +171,11 @@
                 return;
 
             var synced = 0;
-            bool isFirstAsset = true;
+            DateTime? latestSyncedDate = null;
             foreach (var holding in stockHoldings)
             {
                 var price = await Eodhd.FetchLatestPriceAsync(holding.Asset.ExternalTicker!);
                 if (price == null) continue;
-
-                // On the first asset: if EODHD price is still stale, stop the loop entirely
-                // (Don't mark today as synced so it retries on next app open)
-                if (isFirstAsset)
-                {
-                    isFirstAsset = false;
-                    if (price.Value.Date.Date < egyptNow.Date)
-                        break;
-                }
 
                 await Database.SavePriceAsync(new AssetPrice
                 {
@@ -194,17 +185,24 @@
                     Source = PriceSource.Eodhd
                 });
                 synced++;
+
+                if (latestSyncedDate == null || price.Value.Date.Date > latestSyncedDate)
+                    latestSyncedDate = price.Value.Date.Date;
             }
 
             if (synced == 0)
-                return; // Either stale or no prices fetched — don't mark today as synced
+                return; // No prices fetched — don't mark today as synced
 
             // Save today's date so we don't repeat the sync
             Preferences.Default.Set("last_auto_sync_date", todayKey);
 
             await ReloadAsync();
             await InvokeAsync(StateHasChanged);
-            await ShowMessageAsync($"تم تحديث {synced} سعر تلقائياً.");
+
+            var dateLabel = latestSyncedDate?.Date == egyptNow.Date
+                ? "تاريخ اليوم"
+                : latestSyncedDate?.ToString("dddd d/M/yyyy", new System.Globalization.CultureInfo("ar-EG"));
+            await ShowMessageAsync($"تم مزامنة الأسعار تلقائياً حتى {dateLabel}.");
         }
         catch
         {
