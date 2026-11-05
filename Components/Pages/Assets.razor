@@ -41,8 +41,10 @@
                 }
                 else if (item.Asset.IsDailyAccrualFund)
                 {
-                    @* TCD: show only total accrued return (never decreases on withdrawal) *@
+                    @* TCD: show amount, unrealized/realized PnL, then total accrued return *@
                     <span class="market-value-stat"><em>المبلغ</em> <b class="@BalanceClass">@CurrencyValue(item.CurrentValue)</b></span>
+                    <span><em>الربح غير المحقق</em> <b class="@($"{Tone(item.UnrealizedPnL)} {BalanceClass}")">@CurrencyValue(item.UnrealizedPnL)</b></span>
+                    <span><em>الربح المحقق</em> <b class="@($"{Tone(item.RealizedPnL)} {BalanceClass}")">@CurrencyValue(item.RealizedPnL)</b></span>
                     <span class="market-value-stat"><em>إجمالي العائد المحقق</em> <b class="@($"{Tone(item.TotalAccruedReturn)} {BalanceClass}")">@CurrencyValue(item.TotalAccruedReturn)</b></span>
                 }
                 else
